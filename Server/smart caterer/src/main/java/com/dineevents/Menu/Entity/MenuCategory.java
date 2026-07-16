@@ -6,24 +6,18 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+@Entity
 @Getter
 @Setter
-@Entity
-@AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "menu_items")
-public class MenuItem {
+@AllArgsConstructor
+@Table(name = "menu_categories")
+public class MenuCategory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long menuItemId;
-    private String menuItemName;
-    private String menuImageUrl;
-
-    @ManyToOne
-    @JoinColumn(name = "menu_category_id")
-    private MenuCategory menuCategory;
-
-
-
+    private Long menuCategoryId;
+    private String menuCategoryName;
+    private String menuCategoryDescription;
+    private int displayOrder;
 }
