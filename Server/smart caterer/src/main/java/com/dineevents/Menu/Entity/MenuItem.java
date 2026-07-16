@@ -8,15 +8,22 @@ import lombok.Setter;
 
 @Getter
 @Setter
+@Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Entity
-@Table(name = "menu_item")
+@Table(name = "menu_items")
 public class MenuItem {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long menuItemId;
+    private Long menuItemId;
     private String menuItemName;
-    private String menuItemCategory;
-    private String menuItemImageUrl;
+    private String menuImageUrl;
+
+    @ManyToOne
+    @JoinColumn(name = "menu_category_id")
+    private MenuCategory menuCategory;
+
+
+
 }
