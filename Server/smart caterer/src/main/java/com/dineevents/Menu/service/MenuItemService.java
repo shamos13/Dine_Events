@@ -33,14 +33,14 @@ public class MenuItemService {
     }
 
     private MenuItem toEntity(MenuItemRequestDTO dto){
-        MenuCategory menuCategory = menuCategoryRepository.findById(dto.getMenuCategoryId())
-                .orElseThrow(() -> new EntityNotFoundException("Category not found: " + dto.getMenuCategoryId()));
-
-
         MenuItem menuItem = new MenuItem();
         menuItem.setMenuItemName(dto.getMenuItemName());
         menuItem.setMenuImageUrl(dto.getMenuImageUrl());
-        menuItem.setMenuCategory(menuCategory);
+        if (dto.getMenuCategoryId() != null){
+            MenuCategory menuCategory = menuCategoryRepository.findById(dto.getMenuCategoryId())
+                    .orElseThrow(() -> new EntityNotFoundException("Category not found: " + dto.getMenuCategoryId()));
+            menuItem.setMenuCategory(menuCategory);
+        }
         return menuItem;
     }
 
@@ -49,7 +49,7 @@ public class MenuItemService {
         dto.setMenuItemId(menuItem.getMenuItemId());
         dto.setMenuItemName(menuItem.getMenuItemName());
         dto.setMenuImageUrl(menuItem.getMenuImageUrl());
-        dto.setMenuCategoryName(menuItem.getMenuCategory().getMenuCategoryName());
+        dto.setMenuCategoryName(menuItem.getMenuCategory() != null ? menuItem.getMenuCategory().getMenuCategoryName() : null);
         return dto;
     }
 }
