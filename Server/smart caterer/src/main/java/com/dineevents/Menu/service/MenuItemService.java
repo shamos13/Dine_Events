@@ -61,6 +61,7 @@ public class MenuItemService {
         return toResponseDTO(updatedMenuItem);
     }
 
+    // To entity (Data From Client)
     private MenuItem toEntity(MenuItemRequestDTO dto){
         MenuItem menuItem = new MenuItem();
         menuItem.setMenuItemName(dto.getMenuItemName());
@@ -73,6 +74,7 @@ public class MenuItemService {
         return menuItem;
     }
 
+    // To DTO (Data from the Database)
     private MenuItemResponseDTO toResponseDTO(MenuItem menuItem){
         MenuItemResponseDTO dto = new MenuItemResponseDTO();
         dto.setMenuItemId(menuItem.getMenuItemId());
