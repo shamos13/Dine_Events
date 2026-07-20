@@ -7,10 +7,9 @@ import com.dineevents.staff.StaffService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
@@ -22,5 +21,11 @@ public class StaffController {
     @PostMapping("/new-staff")
     public ResponseEntity<StaffResponseDTO> createStaff(@Valid @RequestBody StaffRequestDTO staffRequestDTO) {
         return  ResponseEntity.ok(staffService.createStaff(staffRequestDTO));
+    }
+
+    //Get all staff
+    @GetMapping("/all-staff")
+    public ResponseEntity<List<StaffResponseDTO>> getAllStaff() {
+        return ResponseEntity.ok(staffService.getAllStaff());
     }
 }

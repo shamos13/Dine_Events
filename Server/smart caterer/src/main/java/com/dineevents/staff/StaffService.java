@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -21,8 +23,12 @@ public class StaffService {
         Staff staff = toEntity(staffRequestDTO);
 
         return toResponseDTO(staffRepository.save(staff));
+    }
 
-
+    // Get all staff
+    public List<StaffResponseDTO> getAllStaff() {
+        log.info("Retrieving all staff members");
+        return staffRepository.findAll().stream().map(this::toResponseDTO).toList();
     }
 
 
