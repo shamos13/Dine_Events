@@ -1,5 +1,7 @@
 package com.dineevents.event.Service;
 
+import com.dineevents.client.Entity.Client;
+import com.dineevents.client.Repository.ClientRepository;
 import com.dineevents.event.DTO.Request.EventRequestDTO;
 import com.dineevents.event.DTO.Response.EventResponseDTO;
 import com.dineevents.event.Entity.Event;
@@ -16,6 +18,7 @@ import java.util.List;
 public class EventService {
 
     private final EventRepository eventRepository;
+    private final ClientRepository clientRepository;
 
     // Create a new event
     public EventResponseDTO createEvent(EventRequestDTO eventRequestDTO){
@@ -47,6 +50,13 @@ public class EventService {
         event.setEventDateTime(dto.getEventDateTime());
         event.setGuestCount(dto.getGuestCount());
 
+        // Set the client reference
+        if (dto.getClientId() != null){
+            Client client = clientRepository.findById(dto.getClientId())
+                    .orElseThrow(() -> new IllegalArgumentException("Client not found: " + dto.getClientId()));
+        event.setClient(client);
+        }
+
         return event;
     }
 
@@ -59,6 +69,11 @@ public class EventService {
         dto.setEventVenue(event.getEventVenue());
         dto.setEventDateTime(event.getEventDateTime());
         dto.setGuestCount(event.getGuestCount());
+
+        // Set the client name
+        if (event.getClient() != null){
+            dto.setClientName(event.getClient().getFirstName() + " " + event.getClient().getLastName());
+        }
         return dto;
     }
 }

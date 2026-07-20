@@ -1,5 +1,6 @@
 package com.dineevents.event.Entity;
 
+import com.dineevents.client.Entity.Client;
 import com.dineevents.event.Enums.EventStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -28,4 +29,9 @@ public class Event {
 
     @Column(nullable = false)
     private OffsetDateTime eventDateTime;
+
+    // Relationship with the Client (Many to One)
+    @ManyToOne
+    @JoinColumn(name = "client_id")
+    private Client client;
 }

@@ -13,4 +13,5 @@ public class EventResponseDTO {
     private EventStatus eventStatus;
     private String eventVenue;
     private OffsetDateTime eventDateTime;
+    private String clientName;
 }

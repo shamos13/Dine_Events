@@ -29,4 +29,7 @@ public class EventRequestDTO {
 
     @FutureOrPresent(message = "Event Date and time must be in the future or present")
     private OffsetDateTime eventDateTime;
+
+    @NotNull(message = "Client Id is required")
+    private Long clientId;
 }

@@ -9,4 +9,5 @@ public class ClientResponseDTO {
     private String clientEmail;
     private String clientPhone;
     private String companyName;
+
 }
