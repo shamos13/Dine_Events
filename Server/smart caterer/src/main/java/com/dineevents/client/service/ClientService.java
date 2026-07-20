@@ -4,9 +4,7 @@ import com.dineevents.client.DTO.Request.ClientRequestDTO;
 import com.dineevents.client.DTO.Response.ClientResponseDTO;
 import com.dineevents.client.Entity.Client;
 import com.dineevents.client.Repository.ClientRepository;
-import com.dineevents.event.DTO.Response.EventResponseDTO;
 import com.dineevents.event.DTO.Response.EventSummaryDTO;
-import com.dineevents.event.Entity.Event;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,9 +34,6 @@ public class ClientService {
         List<Client> clients = clientRepository.findAll();
         return clients.stream().map(this::toResponseDTO).toList();
     }
-
-
-
 
 
 
