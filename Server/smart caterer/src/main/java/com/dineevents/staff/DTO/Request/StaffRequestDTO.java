@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,6 +27,8 @@ public class StaffRequestDTO {
     private String staffRole;
     @NotNull
     private double staffSalary;
+
+    private List<String> responsibilities;
 
 
 }

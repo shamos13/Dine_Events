@@ -2,6 +2,8 @@ package com.dineevents.staff.DTO.Response;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class StaffResponseDTO {
     private Long staffId;
@@ -10,4 +12,5 @@ public class StaffResponseDTO {
     private String staffEmail;
     private String staffPhone;
     private double staffSalary;
+    private List<String> responsibilities;
 }
