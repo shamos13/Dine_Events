@@ -6,7 +6,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -27,11 +29,8 @@ public class Staff {
     private String profileImageUrl;
     private String staffRole;
 
-    @ManyToMany
-    @JoinTable(
-            name="staff_responsibilities",
-            joinColumns = @JoinColumn(name = "staff_id"),
-            inverseJoinColumns = @JoinColumn(name = "responsibility_id")
-    )
-    private Set<Responsibilty> responsibilities = new HashSet<>();
+    @ElementCollection
+    @CollectionTable(joinColumns = @JoinColumn(name = "staff_id"))
+    @Column(name = "responsibility")
+    private List<String> responsibilities = new ArrayList<>();
 }
