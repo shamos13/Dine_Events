@@ -1,13 +1,13 @@
 package com.dineevents.staff.Entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -26,4 +26,12 @@ public class Staff {
     private double staffSalary;
     private String profileImageUrl;
     private String staffRole;
+
+    @ManyToMany
+    @JoinTable(
+            name="staff_responsibilities",
+            joinColumns = @JoinColumn(name = "staff_id"),
+            inverseJoinColumns = @JoinColumn(name = "responsibility_id")
+    )
+    private Set<Responsibilty> responsibilities = new HashSet<>();
 }
