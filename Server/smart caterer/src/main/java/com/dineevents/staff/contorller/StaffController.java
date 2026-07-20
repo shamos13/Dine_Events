@@ -3,7 +3,6 @@ package com.dineevents.staff.contorller;
 
 import com.dineevents.staff.DTO.Request.StaffRequestDTO;
 import com.dineevents.staff.DTO.Response.StaffResponseDTO;
-import com.dineevents.staff.StaffRepository;
 import com.dineevents.staff.StaffService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/staff")
-public class StaffContorller {
+public class StaffController {
 
     private final StaffService staffService;
 
