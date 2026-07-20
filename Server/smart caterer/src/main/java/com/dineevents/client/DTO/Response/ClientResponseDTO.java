@@ -1,6 +1,5 @@
 package com.dineevents.client.DTO.Response;
 
-import com.dineevents.event.DTO.Response.EventResponseDTO;
 import com.dineevents.event.DTO.Response.EventSummaryDTO;
 import lombok.Data;
 
