@@ -1,13 +1,13 @@
 package com.dineevents.client.Entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import com.dineevents.event.Entity.Event;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -25,4 +25,8 @@ public class Client {
     private String clientPhone;
 
     private String companyName;
+
+    // Relationship with the client
+    @OneToMany(mappedBy = "client")
+    private List<Event> events;
 }
