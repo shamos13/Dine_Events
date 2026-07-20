@@ -6,10 +6,7 @@ import com.dineevents.client.service.ClientService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
 @RestController
@@ -22,6 +19,10 @@ public class ClientController {
     @PostMapping("/save-client")
     public ResponseEntity<ClientResponseDTO> saveClient(@RequestBody @Valid ClientRequestDTO dto){
         return ResponseEntity.ok(clientService.createClient(dto));
+    }
 
+    @GetMapping("/all-clients")
+    public ResponseEntity<Iterable<ClientResponseDTO>> getAllClients(){
+        return ResponseEntity.ok(clientService.getAllClients());
     }
 }
