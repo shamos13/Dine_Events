@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +31,13 @@ public class InventoryAllocationService {
         InventoryItemAllocation inventoryAllocation = toEntity(inventoryAllocationRequest);
         InventoryItemAllocation savedInventoryAllocation = inventoryAllocationRepository.save(inventoryAllocation);
         return toResponseDTO(savedInventoryAllocation);
+    }
+
+    // Get all inventory allocations
+    public List<InventoryAllocationResponse> getAllInventoryAllocations(){
+        log.info("Retrieving all inventory allocations");
+        List<InventoryItemAllocation> inventoryAllocations = inventoryAllocationRepository.findAll();
+        return inventoryAllocations.stream().map(this::toResponseDTO).toList();
     }
 
 
@@ -60,6 +68,10 @@ public class InventoryAllocationService {
                     throw new IllegalArgumentException("Quantity must be greater than 0");
                 }
 
+                if (dto.getQuantityAllocated() > inventory.getInventoryQuantity()){
+                    throw new IllegalArgumentException("Quantity allocated cannot be greater than the inventory quantity");
+                }
+
                 if (dto.getUnitPrice() == null || dto.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0){
                     throw new IllegalArgumentException("Unit price must be greater than 0");
                 }
@@ -69,9 +81,17 @@ public class InventoryAllocationService {
             }
 
             case FLAT_RATE -> {
-                if (dto.getFlatRate() == null || dto.getFlatRate().compareTo(BigDecimal.ZERO) <= 0){
+                if (dto.getFlatRate() == null || dto.getFlatRate().compareTo(BigDecimal.ZERO ) <= 0){
                     throw new IllegalArgumentException("Flat rate must be greater than 0");
                 }
+
+                if (dto.getQuantityAllocated() == null ||dto.getQuantityAllocated() <= 0){
+                    throw new IllegalArgumentException("Quantity must be greater than 0");
+                }
+                if (dto.getQuantityAllocated() > inventory.getInventoryQuantity()){
+                    throw new IllegalArgumentException("Quantity allocated cannot be greater than the inventory quantity");
+                }
+                allocation.setQuantityAllocated(dto.getQuantityAllocated());
                 allocation.setFlatRate(dto.getFlatRate());
                 allocation.setTotalCost(dto.getFlatRate());
             }

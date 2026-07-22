@@ -1,12 +1,15 @@
 package com.dineevents.Inventory.Entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.List;
+import java.math.BigDecimal;
 
 @Entity
 @Getter
@@ -19,9 +22,9 @@ public class Inventory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long inventoryId;
     private String inventoryName;
-    private int inventoryQuantity;
+    private Integer inventoryQuantity;
 
     //unit price reference
-    private double unitPrice;
+    private BigDecimal unitPrice;
 
 }
