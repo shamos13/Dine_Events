@@ -52,6 +52,7 @@ public class InventoryAllocationService {
         InventoryItemAllocation allocation = new InventoryItemAllocation();
         allocation.setInventory(inventory);
         allocation.setEvent(event);
+        allocation.setPricingType(dto.getPricingType());
 
         switch (dto.getPricingType()){
             case PER_UNIT -> {
