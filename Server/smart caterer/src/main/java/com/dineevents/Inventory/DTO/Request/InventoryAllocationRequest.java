@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -21,11 +23,11 @@ public class InventoryAllocationRequest {
     private PricingType pricingType;
 
     // Per unit fields
-    private double unitPrice;
+    private BigDecimal unitPrice;
     private Integer quantityAllocated;
 
     // Flat rate fields
-    private double flatRate;
+    private BigDecimal flatRate;
 
-    private double totalCost;
+    private BigDecimal totalCost;
 }
