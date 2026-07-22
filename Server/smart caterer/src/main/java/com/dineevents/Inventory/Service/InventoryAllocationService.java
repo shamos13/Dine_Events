@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +31,13 @@ public class InventoryAllocationService {
         InventoryItemAllocation inventoryAllocation = toEntity(inventoryAllocationRequest);
         InventoryItemAllocation savedInventoryAllocation = inventoryAllocationRepository.save(inventoryAllocation);
         return toResponseDTO(savedInventoryAllocation);
+    }
+
+    // Get all inventory allocations
+    public List<InventoryAllocationResponse> getAllInventoryAllocations(){
+        log.info("Retrieving all inventory allocations");
+        List<InventoryItemAllocation> inventoryAllocations = inventoryAllocationRepository.findAll();
+        return inventoryAllocations.stream().map(this::toResponseDTO).toList();
     }
 
 
