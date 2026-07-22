@@ -1,4 +1,4 @@
-package com.dineevents.Inventory.DTO;
+package com.dineevents.Inventory.DTO.Request;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -7,8 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class InventoryResponseDTO {
-    private Long inventoryId;
+public class InventoryRequestDTO {
     private String inventoryName;
     private int inventoryQuantity;
     private double inventoryPrice;
