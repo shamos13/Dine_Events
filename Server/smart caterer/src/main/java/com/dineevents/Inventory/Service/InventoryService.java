@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -25,6 +27,12 @@ public class InventoryService {
         return toResponseDTO(savedInventory);
     }
 
+    // Get all inventories
+    public List<InventoryResponseDTO> getAllInventories(){
+        log.info("Retrieving all inventories");
+        List<Inventory> inventories = inventoryRepository.findAll();
+        return inventories.stream().map(this::toResponseDTO).toList();
+    }
 
 
     //Mappers
@@ -33,6 +41,7 @@ public class InventoryService {
         Inventory inventory = new Inventory();
         inventory.setInventoryName(dto.getInventoryName());
         inventory.setInventoryQuantity(dto.getInventoryQuantity());
+        inventory.setUnitPrice(dto.getUnitPrice());
         return inventory;
     }
 
@@ -42,6 +51,7 @@ public class InventoryService {
         dto.setInventoryId(inventory.getInventoryId());
         dto.setInventoryName(inventory.getInventoryName());
         dto.setInventoryQuantity(inventory.getInventoryQuantity());
+        dto.setUnitPrice(inventory.getUnitPrice());
         return dto;
     }
 }
