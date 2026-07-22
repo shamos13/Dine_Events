@@ -1,11 +1,18 @@
 package com.dineevents.Inventory.Entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.util.List;
 
 @Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class Inventory {
 
     @Id
@@ -13,6 +20,8 @@ public class Inventory {
     private Long inventoryId;
     private String inventoryName;
     private int inventoryQuantity;
-    private double inventoryPrice;
+
+    //unit price reference
+    private double unitPrice;
 
 }

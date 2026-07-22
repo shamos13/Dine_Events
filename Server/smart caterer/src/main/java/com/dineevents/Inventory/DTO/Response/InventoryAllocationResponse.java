@@ -1,0 +1,25 @@
+package com.dineevents.Inventory.DTO.Response;
+
+
+import com.dineevents.Inventory.Enums.PricingType;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class InventoryAllocationResponse {
+    private Long allocationId;
+    private String inventoryName;
+    private String eventName;
+    private PricingType pricingType;
+
+    private Integer quantityAllocated;
+    private BigDecimal unitPriceAtAllocation;
+    private BigDecimal flatRate;
+
+    private BigDecimal totalCost;
+}
