@@ -1,7 +1,7 @@
-package com.dineevents.Inventory;
+package com.dineevents.Inventory.Controller;
 
-import com.dineevents.Inventory.DTO.InventoryRequestDTO;
-import com.dineevents.Inventory.DTO.InventoryResponseDTO;
+import com.dineevents.Inventory.DTO.Request.InventoryRequestDTO;
+import com.dineevents.Inventory.DTO.Response.InventoryResponseDTO;
 import com.dineevents.Inventory.Service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

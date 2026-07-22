@@ -1,4 +1,4 @@
-package com.dineevents.Inventory;
+package com.dineevents.Inventory.Repository;
 
 import com.dineevents.Inventory.Entity.Inventory;
 import org.springframework.data.jpa.repository.JpaRepository;
