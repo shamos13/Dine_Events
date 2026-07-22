@@ -8,6 +8,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Entity
 @Getter
 @Setter
@@ -35,12 +37,12 @@ public class InventoryItemAllocation {
 
     // Per_unit fields null when flat_rate
     private Integer quantityAllocated; //how many units of the item are allocated
-    private double unitPrice; //price per unit at the time of allocation - kupeana
+    private BigDecimal unitPrice; //price per unit at the time of allocation - kupeana
 
     // Flat_Rate fields null when per_unit
-    private double flatRate;
+    private BigDecimal flatRate;
 
-    private double totalCost;
+    private BigDecimal totalCost;
 
     private Integer quantityReturned;
     private String conditionNotes;

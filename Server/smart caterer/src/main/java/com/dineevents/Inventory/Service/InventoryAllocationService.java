@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -53,20 +55,20 @@ public class InventoryAllocationService {
 
         switch (dto.getPricingType()){
             case PER_UNIT -> {
-                if (dto.getQuantityAllocated() == 0 ||dto.getQuantityAllocated() <= 0){
+                if (dto.getQuantityAllocated() == null ||dto.getQuantityAllocated() <= 0){
                     throw new IllegalArgumentException("Quantity must be greater than 0");
                 }
 
-                if (dto.getUnitPrice() == 0){
+                if (dto.getUnitPrice() == null || dto.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0){
                     throw new IllegalArgumentException("Unit price must be greater than 0");
                 }
                 allocation.setUnitPrice(dto.getUnitPrice());
                 allocation.setQuantityAllocated(dto.getQuantityAllocated());
-                allocation.setTotalCost(dto.getUnitPrice() * dto.getQuantityAllocated());
+                allocation.setTotalCost(dto.getUnitPrice().multiply(BigDecimal.valueOf(dto.getQuantityAllocated())));
             }
 
             case FLAT_RATE -> {
-                if (dto.getFlatRate() == 0){
+                if (dto.getFlatRate() == null || dto.getFlatRate().compareTo(BigDecimal.ZERO) <= 0){
                     throw new IllegalArgumentException("Flat rate must be greater than 0");
                 }
                 allocation.setFlatRate(dto.getFlatRate());
