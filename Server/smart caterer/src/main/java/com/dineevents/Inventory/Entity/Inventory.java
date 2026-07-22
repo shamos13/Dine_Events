@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Entity
 @Getter
 @Setter
@@ -21,6 +23,5 @@ public class Inventory {
     private Long inventoryId;
     private String inventoryName;
     private int inventoryQuantity;
-    private double inventoryPrice;
 
 }
