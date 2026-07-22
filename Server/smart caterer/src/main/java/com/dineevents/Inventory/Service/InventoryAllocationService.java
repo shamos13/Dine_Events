@@ -56,7 +56,7 @@ public class InventoryAllocationService {
 
         switch (dto.getPricingType()){
             case PER_UNIT -> {
-                if (dto.getQuantityAllocated() == null ||dto.getQuantityAllocated() <= 0){
+                if (dto.getQuantityAllocated() == null ||dto.getQuantityAllocated() <= 0 || dto.getQuantityAllocated() > inventory.getInventoryQuantity()){
                     throw new IllegalArgumentException("Quantity must be greater than 0");
                 }
 
@@ -69,9 +69,10 @@ public class InventoryAllocationService {
             }
 
             case FLAT_RATE -> {
-                if (dto.getFlatRate() == null || dto.getFlatRate().compareTo(BigDecimal.ZERO) <= 0){
+                if (dto.getFlatRate() == null || dto.getFlatRate().compareTo(BigDecimal.ZERO ) <= 0 || dto.getQuantityAllocated() > inventory.getInventoryQuantity()){
                     throw new IllegalArgumentException("Flat rate must be greater than 0");
                 }
+                allocation.setQuantityAllocated(dto.getQuantityAllocated());
                 allocation.setFlatRate(dto.getFlatRate());
                 allocation.setTotalCost(dto.getFlatRate());
             }
