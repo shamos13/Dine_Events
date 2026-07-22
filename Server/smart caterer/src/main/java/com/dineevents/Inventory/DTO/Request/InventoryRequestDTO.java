@@ -10,5 +10,5 @@ import lombok.NoArgsConstructor;
 public class InventoryRequestDTO {
     private String inventoryName;
     private int inventoryQuantity;
-    private double inventoryPrice;
+    private double unitPrice;
 }

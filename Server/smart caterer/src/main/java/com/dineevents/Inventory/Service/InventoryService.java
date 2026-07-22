@@ -1,10 +1,10 @@
 package com.dineevents.Inventory.Service;
 
 
-import com.dineevents.Inventory.DTO.InventoryRequestDTO;
-import com.dineevents.Inventory.DTO.InventoryResponseDTO;
+import com.dineevents.Inventory.DTO.Request.InventoryRequestDTO;
+import com.dineevents.Inventory.DTO.Response.InventoryResponseDTO;
 import com.dineevents.Inventory.Entity.Inventory;
-import com.dineevents.Inventory.InventoryRepository;
+import com.dineevents.Inventory.Repository.InventoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,15 +27,12 @@ public class InventoryService {
 
 
 
-
-
     //Mappers
     // DTO to Entity
     private Inventory toEntity(InventoryRequestDTO dto){
         Inventory inventory = new Inventory();
         inventory.setInventoryName(dto.getInventoryName());
         inventory.setInventoryQuantity(dto.getInventoryQuantity());
-        inventory.setInventoryPrice(dto.getInventoryPrice());
         return inventory;
     }
 
@@ -45,7 +42,6 @@ public class InventoryService {
         dto.setInventoryId(inventory.getInventoryId());
         dto.setInventoryName(inventory.getInventoryName());
         dto.setInventoryQuantity(inventory.getInventoryQuantity());
-        dto.setInventoryPrice(inventory.getInventoryPrice());
         return dto;
     }
 }
