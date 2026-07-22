@@ -1,5 +1,6 @@
 package com.dineevents.event.Entity;
 
+import com.dineevents.Inventory.Entity.InventoryItemAllocation;
 import com.dineevents.client.Entity.Client;
 import com.dineevents.event.Enums.EventStatus;
 import jakarta.persistence.*;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Entity
 @Getter
@@ -34,4 +36,8 @@ public class Event {
     @ManyToOne
     @JoinColumn(name = "client_id")
     private Client client;
+
+    // Relationship with the InventoryAllocation (One to Many)
+    @OneToMany(mappedBy = "event")
+    private List<InventoryItemAllocation> inventoryItemAllocations;
 }
