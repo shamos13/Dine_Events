@@ -1,6 +1,7 @@
 package com.dineevents.Inventory.Entity;
 
 import com.dineevents.Inventory.Enums.PricingType;
+import com.dineevents.Quotation.Entity.QuotationLineItem;
 import com.dineevents.event.Entity.Event;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Entity
 @Getter
@@ -30,6 +32,10 @@ public class InventoryItemAllocation {
     @ManyToOne
     @JoinColumn(name = "event_id")
     private Event event;
+
+    // Relationship with the quotation line item
+    @OneToMany(mappedBy = "inventoryItemAllocation")
+    private List<QuotationLineItem> quotationLineItems;
 
     // Get the pricing type
     @Enumerated(EnumType.STRING)
