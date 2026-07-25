@@ -24,6 +24,7 @@ public class Quotation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long quotationId;
     private String quotationNumber;
+    private String QuotationName;
 
     @ManyToOne
     @JoinColumn(name = "event_id", nullable = false)
