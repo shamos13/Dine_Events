@@ -4,5 +4,5 @@ public enum LineItemType {
     MENU_PACKAGE,
     RENTAL,
     SERVICE,
-    CUSTOM
+    OTHER
 }
