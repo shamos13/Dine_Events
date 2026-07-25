@@ -1,5 +1,6 @@
 package com.dineevents.Quotation.Entity;
 
+import com.dineevents.Menu.Entity.MenuItem;
 import com.dineevents.Quotation.Enum.LineItemType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -21,6 +22,10 @@ public class QuotationLineItem {
     @ManyToOne
     @JoinColumn(name = "quotation_id", nullable = false)
     private Quotation quotation;
+
+    @ManyToOne
+    @JoinColumn(name = "menu_item_id", nullable = false)
+    private MenuItem menuItem;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
