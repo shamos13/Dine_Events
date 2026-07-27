@@ -106,6 +106,9 @@ public class InventoryAllocationService {
         dto.setAllocationId(allocation.getAllocationId());
         dto.setInventoryName(allocation.getInventory().getInventoryName());
         dto.setEventName(allocation.getEvent().getEventName());
+        if (allocation.getEvent().getClient() != null){
+            dto.setClientName(allocation.getEvent().getClient().getFirstName() + " " + allocation.getEvent().getClient().getLastName());
+        }
         dto.setPricingType(allocation.getPricingType());
         dto.setQuantityAllocated(allocation.getQuantityAllocated());
         dto.setUnitPriceAtAllocation(allocation.getUnitPrice());
