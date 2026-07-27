@@ -3,6 +3,8 @@ package com.dineevents.Quotation.Service;
 import com.dineevents.Inventory.Entity.InventoryItemAllocation;
 import com.dineevents.Inventory.Enums.PricingType;
 import com.dineevents.Inventory.Repository.InventoryAllocationRepository;
+import com.dineevents.Invoice.DTO.Response.InvoiceResponseDTO;
+import com.dineevents.Invoice.Service.InvoiceService;
 import com.dineevents.Quotation.DTO.QuotationLineItemResponseDTO;
 import com.dineevents.Quotation.DTO.QuotationResponseDTO;
 import com.dineevents.Quotation.DTO.Request.QuotationRequestDTO;
@@ -35,6 +37,7 @@ public class QuotationService {
     private final InventoryAllocationRepository inventoryAllocationRepository;
     private final EventRepository eventRepository;
     private final StaffAssignmentRepository staffAssignmentRepository;
+    private final InvoiceService invoiceService;
 
     //Create a new quotation
     public QuotationResponseDTO createQuotation(QuotationRequestDTO dto){
@@ -118,6 +121,22 @@ public class QuotationService {
         return quotations.stream().map(this::toResponseDTO).toList();
     }
 
+    // Approve Quotation
+    public InvoiceResponseDTO approveQuotation(Long quotationId) {
+        Quotation quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new EntityNotFoundException("Quotation not found: " + quotationId));
+
+        if (quotation.getQuotationStatus() != QuotationStatus.DRAFT
+                && quotation.getQuotationStatus() != QuotationStatus.SENT) {
+            throw new IllegalStateException(
+                    "Cannot approve quotation in status " + quotation.getQuotationStatus());
+        }
+
+        quotation.setQuotationStatus(QuotationStatus.ACCEPTED);
+        quotationRepository.save(quotation);
+
+        return invoiceService.createInvoiceFromQuotation(quotation);
+    }
 
 
     // Helper Methods

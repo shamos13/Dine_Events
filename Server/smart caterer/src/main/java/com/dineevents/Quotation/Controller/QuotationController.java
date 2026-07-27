@@ -1,6 +1,7 @@
 package com.dineevents.Quotation.Controller;
 
 
+import com.dineevents.Invoice.DTO.Response.InvoiceResponseDTO;
 import com.dineevents.Quotation.DTO.QuotationResponseDTO;
 import com.dineevents.Quotation.DTO.Request.QuotationRequestDTO;
 import com.dineevents.Quotation.Service.QuotationService;
@@ -28,5 +29,13 @@ public class QuotationController {
     @GetMapping("/all-quotations")
     public ResponseEntity<List<QuotationResponseDTO>> getAllQuotations(){
         return ResponseEntity.status(HttpStatus.OK).body(quotationService.getAllQuotations());
+    }
+
+    //Approve Quotation
+    // QuotationController.java — new endpoint
+    @PatchMapping("/{quotationId}/approve")
+    public ResponseEntity<InvoiceResponseDTO> approveQuotation(@PathVariable Long quotationId) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(quotationService.approveQuotation(quotationId));
     }
 }
