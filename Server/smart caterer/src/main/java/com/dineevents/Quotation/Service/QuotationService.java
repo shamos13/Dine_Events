@@ -12,6 +12,8 @@ import com.dineevents.Quotation.Enum.QuotationStatus;
 import com.dineevents.Quotation.Repository.QuotationRepository;
 import com.dineevents.event.Entity.Event;
 import com.dineevents.event.Repository.EventRepository;
+import com.dineevents.staff.Entity.StaffAssignment;
+import com.dineevents.staff.Repository.StaffAssignmentRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,7 @@ public class QuotationService {
     private final QuotationRepository quotationRepository;
     private final InventoryAllocationRepository inventoryAllocationRepository;
     private final EventRepository eventRepository;
+    private final StaffAssignmentRepository staffAssignmentRepository;
 
     //Create a new quotation
     public QuotationResponseDTO createQuotation(Long eventId, LocalDate validUntil){
@@ -45,6 +48,8 @@ public class QuotationService {
         quotation.setCreatedAt(OffsetDateTime.now());
 
         List<QuotationLineItem> lineItems = new ArrayList<>();
+
+        // Inventory line items
         List<InventoryItemAllocation> allocations =  inventoryAllocationRepository.findByEvent(event);
 
         for (InventoryItemAllocation allocation : allocations){
@@ -61,6 +66,20 @@ public class QuotationService {
                 lineItem.setUnitPriceAtQuotation(allocation.getFlatRate());
             }
             lineItem.setLineTotal(allocation.getTotalCost());
+            lineItems.add(lineItem);
+        }
+
+        // Staff line items
+        List<StaffAssignment> staffAssignments = staffAssignmentRepository.findByEvent(event);
+        for (StaffAssignment staffAssignment : staffAssignments){
+            QuotationLineItem lineItem = new QuotationLineItem();
+            lineItem.setQuotation(quotation);
+            lineItem.setLineItemType(LineItemType.STAFF);
+            lineItem.setAssignedStaff(staffAssignment);
+            lineItem.setDescription(staffAssignment.getStaff().getStaffName());
+            lineItem.setQuantity(BigDecimal.ONE);
+            lineItem.setUnitPriceAtQuotation(staffAssignment.getSalaryAtAssignment());
+            lineItem.setLineTotal(staffAssignment.getSalaryAtAssignment());
             lineItems.add(lineItem);
         }
 
