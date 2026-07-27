@@ -23,7 +23,6 @@ public class InventoryAllocationRequest {
     private PricingType pricingType;
 
     // Per unit fields
-    private BigDecimal unitPrice;
     private Integer quantityAllocated;
 
     // Flat rate fields
