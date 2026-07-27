@@ -49,6 +49,9 @@ public class StaffAssignmentService {
         StaffAssignment staffAssignment = new StaffAssignment();
         staffAssignment.setEvent(event);
         staffAssignment.setStaff(staff);
+
+        //Snapshotting the staff salary
+        staffAssignment.setSalaryAtAssignment(staff.getStaffSalary());
         return staffAssignment;
     }
 

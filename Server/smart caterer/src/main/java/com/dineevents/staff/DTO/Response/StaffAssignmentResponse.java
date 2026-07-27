@@ -7,5 +7,4 @@ public class StaffAssignmentResponse {
     private Long staffAssignmentId;
     private String staffName;
     private String eventName;
-    private double staffSalary;
 }
