@@ -2,6 +2,7 @@ package com.dineevents.staff.DTO.Response;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -11,6 +12,6 @@ public class StaffResponseDTO {
     private String staffRole;
     private String staffEmail;
     private String staffPhone;
-    private double staffSalary;
+    private BigDecimal staffSalary;
     private List<String> responsibilities;
 }
