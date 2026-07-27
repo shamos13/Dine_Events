@@ -5,6 +5,7 @@ import com.dineevents.Inventory.Enums.PricingType;
 import com.dineevents.Inventory.Repository.InventoryAllocationRepository;
 import com.dineevents.Quotation.DTO.QuotationLineItemResponseDTO;
 import com.dineevents.Quotation.DTO.QuotationResponseDTO;
+import com.dineevents.Quotation.DTO.Request.QuotationRequestDTO;
 import com.dineevents.Quotation.Entity.Quotation;
 import com.dineevents.Quotation.Entity.QuotationLineItem;
 import com.dineevents.Quotation.Enum.LineItemType;
@@ -36,14 +37,28 @@ public class QuotationService {
     private final StaffAssignmentRepository staffAssignmentRepository;
 
     //Create a new quotation
-    public QuotationResponseDTO createQuotation(Long eventId, LocalDate validUntil){
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new EntityNotFoundException("Event not found: " + eventId));
+    public QuotationResponseDTO createQuotation(QuotationRequestDTO dto){
+        Event event = eventRepository.findById(dto.getEventId())
+                .orElseThrow(() -> new EntityNotFoundException("Event not found: " + dto.getEventId()));
 
         Quotation quotation = new Quotation();
         quotation.setQuotationNumber(generateQuotationNumber());
         quotation.setEvent(event);
+
+        // Optional to set valid until if the admin provides one or the system auto generates
+        OffsetDateTime now = OffsetDateTime.now();
+        quotation.setCreatedAt(now);
+        LocalDate validUntil = dto.getValidUntil() != null
+                ? dto.getValidUntil()
+                : calculateValidUntil(event,now );
         quotation.setValidUntil(validUntil);
+
+        // Set the quotation name
+        String name = dto.getQuotationName() != null && !dto.getQuotationName().isBlank()
+                ? dto.getQuotationName()
+                : event.getEventName() + " Quotation";
+        quotation.setQuotationName(name);
+
         quotation.setQuotationStatus(QuotationStatus.DRAFT);
         quotation.setCreatedAt(OffsetDateTime.now());
 
@@ -104,9 +119,30 @@ public class QuotationService {
     }
 
 
+
+    // Helper Methods
     private String generateQuotationNumber() {
         return "QT-" + java.time.Year.now() + "-" + String.format("%04d", quotationRepository.count() + 1);
     }
+
+    //Business Rule quotation is only valid for 14 days with
+    //and only two days before the event
+    private LocalDate calculateValidUntil(Event event, OffsetDateTime createdAt){
+        LocalDate today = createdAt.toLocalDate();
+        LocalDate eventDate = event.getEventDateTime().toLocalDate();
+
+        LocalDate standardValidity = today.plusDays(14);
+        LocalDate latestAllowed = eventDate.minusDays(2);
+
+        LocalDate validUntil = standardValidity.isBefore(latestAllowed) ? standardValidity : latestAllowed;
+
+        // Short Notice Events fall back to one day before or today if that's gone too
+        if (!validUntil.isAfter(today)){
+            LocalDate dayBeforeEvent = eventDate.minusDays(1);
+            validUntil = dayBeforeEvent.isAfter(today) ? dayBeforeEvent : today;
+        }
+        return validUntil;
+        }
 
     //To Respsonse DTO
     private QuotationResponseDTO toResponseDTO(Quotation quotation){
@@ -120,6 +156,7 @@ public class QuotationService {
             dto.setClientPhone(quotation.getEvent().getClient().getClientPhone());
         }
         dto.setSubTotal(quotation.getSubTotal());
+        dto.setQuotationName(quotation.getQuotationName());
         dto.setTotal(quotation.getTotal());
         dto.setQuotationStatus(quotation.getQuotationStatus());
         dto.setValidUntil(quotation.getValidUntil());
