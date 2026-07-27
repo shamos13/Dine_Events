@@ -72,12 +72,10 @@ public class InventoryAllocationService {
                     throw new IllegalArgumentException("Quantity allocated cannot be greater than the inventory quantity");
                 }
 
-                if (dto.getUnitPrice() == null || dto.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0){
-                    throw new IllegalArgumentException("Unit price must be greater than 0");
-                }
-                allocation.setUnitPrice(dto.getUnitPrice());
+                BigDecimal catalogPrice = inventory.getUnitPrice();
+                allocation.setUnitPrice(catalogPrice);
                 allocation.setQuantityAllocated(dto.getQuantityAllocated());
-                allocation.setTotalCost(dto.getUnitPrice().multiply(BigDecimal.valueOf(dto.getQuantityAllocated())));
+                allocation.setTotalCost(catalogPrice.multiply(BigDecimal.valueOf(dto.getQuantityAllocated())));
             }
 
             case FLAT_RATE -> {
