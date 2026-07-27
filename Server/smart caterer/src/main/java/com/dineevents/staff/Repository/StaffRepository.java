@@ -1,4 +1,4 @@
-package com.dineevents.staff;
+package com.dineevents.staff.Repository;
 
 import com.dineevents.staff.Entity.Staff;
 import org.springframework.data.jpa.repository.JpaRepository;

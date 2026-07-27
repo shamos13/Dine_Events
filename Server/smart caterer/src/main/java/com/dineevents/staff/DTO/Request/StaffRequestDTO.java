@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -26,7 +27,7 @@ public class StaffRequestDTO {
     @NotBlank
     private String staffRole;
     @NotNull
-    private double staffSalary;
+    private BigDecimal staffSalary;
 
     private List<String> responsibilities;
 

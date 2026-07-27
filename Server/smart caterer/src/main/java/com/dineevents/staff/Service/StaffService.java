@@ -1,9 +1,10 @@
-package com.dineevents.staff;
+package com.dineevents.staff.Service;
 
 
 import com.dineevents.staff.DTO.Request.StaffRequestDTO;
 import com.dineevents.staff.DTO.Response.StaffResponseDTO;
 import com.dineevents.staff.Entity.Staff;
+import com.dineevents.staff.Repository.StaffRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

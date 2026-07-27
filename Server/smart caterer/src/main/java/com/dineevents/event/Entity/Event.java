@@ -3,6 +3,8 @@ package com.dineevents.event.Entity;
 import com.dineevents.Inventory.Entity.InventoryItemAllocation;
 import com.dineevents.client.Entity.Client;
 import com.dineevents.event.Enums.EventStatus;
+import com.dineevents.staff.DTO.Response.StaffAssignmentSummary;
+import com.dineevents.staff.Entity.StaffAssignment;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -40,4 +42,7 @@ public class Event {
     // Relationship with the InventoryAllocation (One to Many)
     @OneToMany(mappedBy = "event")
     private List<InventoryItemAllocation> inventoryItemAllocations;
+
+    @OneToMany(mappedBy = "event")
+    private List<StaffAssignment> staffs;
 }

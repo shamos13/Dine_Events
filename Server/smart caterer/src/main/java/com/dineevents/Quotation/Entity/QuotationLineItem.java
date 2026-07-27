@@ -4,6 +4,7 @@ import com.dineevents.Inventory.Entity.InventoryItemAllocation;
 import com.dineevents.Menu.Entity.MenuItem;
 import com.dineevents.Quotation.Enum.LineItemType;
 import com.dineevents.staff.Entity.Staff;
+import com.dineevents.staff.Entity.StaffAssignment;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -37,8 +38,8 @@ public class QuotationLineItem {
     private InventoryItemAllocation inventoryItemAllocation;
 
     @ManyToOne
-    @JoinColumn(name = "staff_id")
-    private Staff staff;
+    @JoinColumn(name = "staff_assignment_id")
+    private StaffAssignment assignedStaff;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

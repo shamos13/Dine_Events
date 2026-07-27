@@ -1,14 +1,18 @@
 package com.dineevents.Quotation.Controller;
 
 
+import com.dineevents.Invoice.DTO.Response.InvoiceResponseDTO;
 import com.dineevents.Quotation.DTO.QuotationResponseDTO;
+import com.dineevents.Quotation.DTO.Request.QuotationRequestDTO;
 import com.dineevents.Quotation.Service.QuotationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -17,12 +21,21 @@ public class QuotationController {
 
     private final QuotationService quotationService;
 
-    @PostMapping("/generate/{eventId}")
-    public ResponseEntity<QuotationResponseDTO> createQuotation(@PathVariable Long eventId,
-                                                                @RequestParam(required = false) LocalDate validUntil){
+    @PostMapping("/generate")
+    public ResponseEntity<QuotationResponseDTO> createQuotation(@Valid @RequestBody QuotationRequestDTO quotationRequestDTO){
+        return ResponseEntity.status(HttpStatus.CREATED).body(quotationService.createQuotation(quotationRequestDTO));
+    }
 
+    @GetMapping("/all-quotations")
+    public ResponseEntity<List<QuotationResponseDTO>> getAllQuotations(){
+        return ResponseEntity.status(HttpStatus.OK).body(quotationService.getAllQuotations());
+    }
+
+    //Approve Quotation
+    // QuotationController.java — new endpoint
+    @PatchMapping("/{quotationId}/approve")
+    public ResponseEntity<InvoiceResponseDTO> approveQuotation(@PathVariable Long quotationId) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(quotationService.createQuotation(eventId, validUntil));
-
+                .body(quotationService.approveQuotation(quotationId));
     }
 }

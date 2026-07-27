@@ -73,6 +73,8 @@ public class EventService {
         // Set the client name
         if (event.getClient() != null){
             dto.setClientName(event.getClient().getFirstName() + " " + event.getClient().getLastName());
+            dto.setClientEmail(event.getClient().getClientEmail());
+            dto.setClientPhone(event.getClient().getClientPhone());
         }
         return dto;
     }

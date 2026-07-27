@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,7 +24,7 @@ public class Staff {
     private String staffName;
     private String staffEmail;
     private String staffPhone;
-    private double staffSalary;
+    private BigDecimal staffSalary;
     private String profileImageUrl;
     private String staffRole;
 

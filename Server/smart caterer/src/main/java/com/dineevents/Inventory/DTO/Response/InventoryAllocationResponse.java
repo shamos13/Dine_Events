@@ -15,6 +15,7 @@ public class InventoryAllocationResponse {
     private Long allocationId;
     private String inventoryName;
     private String eventName;
+    private String clientName;
     private PricingType pricingType;
 
     private Integer quantityAllocated;

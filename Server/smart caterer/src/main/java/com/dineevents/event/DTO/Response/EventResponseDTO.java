@@ -14,4 +14,6 @@ public class EventResponseDTO {
     private String eventVenue;
     private OffsetDateTime eventDateTime;
     private String clientName;
+    private String clientPhone;
+    private String clientEmail;
 }
