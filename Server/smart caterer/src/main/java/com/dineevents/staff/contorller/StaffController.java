@@ -3,7 +3,7 @@ package com.dineevents.staff.contorller;
 
 import com.dineevents.staff.DTO.Request.StaffRequestDTO;
 import com.dineevents.staff.DTO.Response.StaffResponseDTO;
-import com.dineevents.staff.StaffService;
+import com.dineevents.staff.Service.StaffService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
