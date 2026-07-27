@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -24,5 +25,10 @@ public class QuotationController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(quotationService.createQuotation(eventId, validUntil));
 
+    }
+
+    @GetMapping("/all-quotations")
+    public ResponseEntity<List<QuotationResponseDTO>> getAllQuotations(){
+        return ResponseEntity.status(HttpStatus.OK).body(quotationService.getAllQuotations());
     }
 }

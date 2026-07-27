@@ -96,6 +96,13 @@ public class QuotationService {
 
     }
 
+    // Get all quotations
+    public List<QuotationResponseDTO> getAllQuotations(){
+        log.info("Retrieving all quotations");
+        List<Quotation> quotations = quotationRepository.findAll();
+        return quotations.stream().map(this::toResponseDTO).toList();
+    }
+
 
     private String generateQuotationNumber() {
         return "QT-" + java.time.Year.now() + "-" + String.format("%04d", quotationRepository.count() + 1);
