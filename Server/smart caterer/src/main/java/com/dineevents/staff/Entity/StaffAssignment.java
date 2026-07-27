@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Entity
 @Getter
 @Setter
@@ -28,6 +30,8 @@ public class StaffAssignment {
     @ManyToOne
     @JoinColumn(name = "event_id")
     private Event event;
+
+    private BigDecimal salaryAtAssignment;
 
     @Enumerated(EnumType.STRING)
     private AssignmentStatus assignmentStatus;
