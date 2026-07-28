@@ -1,12 +1,17 @@
 'use client'
 
 import AuthFrame from '@/components/AuthFrame'
+import { ApiError } from '@/lib/api/client'
+import { useAuth } from '@/lib/auth-context'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 
 export default function Login() {
+  const { login } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -21,8 +26,17 @@ export default function Login() {
     }))
   }
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
+    setError(null)
+    setIsSubmitting(true)
+    try {
+      await login({ email: formData.email, password: formData.password })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Unable to sign in. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -94,11 +108,18 @@ export default function Login() {
           </label>
         </div>
 
+        {error && (
+          <p role="alert" className="text-sm font-medium text-red-600">
+            {error}
+          </p>
+        )}
+
         <button
           type="submit"
-          className="h-12 w-full rounded-lg bg-[#CC2622] text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#A01F1A] focus:outline-none focus:ring-2 focus:ring-[#CC2622]/30 focus:ring-offset-2"
+          disabled={isSubmitting}
+          className="h-12 w-full rounded-lg bg-[#CC2622] text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#A01F1A] focus:outline-none focus:ring-2 focus:ring-[#CC2622]/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Sign in
+          {isSubmitting ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
 
