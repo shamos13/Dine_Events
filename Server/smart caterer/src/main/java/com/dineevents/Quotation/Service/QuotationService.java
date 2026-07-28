@@ -168,6 +168,7 @@ public class QuotationService {
         QuotationResponseDTO dto = new QuotationResponseDTO();
         dto.setQuotationId(quotation.getQuotationId());
         dto.setQuotationNumber(quotation.getQuotationNumber());
+        dto.setEventId(quotation.getEvent().getEventId());
         dto.setEventName(quotation.getEvent().getEventName());
         if (quotation.getEvent().getClient() != null){
             dto.setClientName(quotation.getEvent().getClient().getFirstName() + " " + quotation.getEvent().getClient().getLastName());

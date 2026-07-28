@@ -1,8 +1,9 @@
 'use client'
 
-import { Eye, EyeOff } from 'lucide-react'
-import { useState } from 'react'
+import AuthFrame from '@/components/AuthFrame'
+import { Building2, Eye, EyeOff, Lock, Mail, UserRound } from 'lucide-react'
 import Link from 'next/link'
+import { useState } from 'react'
 
 export default function Signup() {
   const [showPassword, setShowPassword] = useState(false)
@@ -13,131 +14,125 @@ export default function Signup() {
     password: '',
   })
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target
+    setFormData((previous) => ({
+      ...previous,
       [name]: value,
     }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log('Signup attempt:', formData)
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Card */}
-        <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-200">
-          {/* Logo */}
-          <div className="flex justify-center mb-8">
-            <div className="w-16 h-16 bg-[#CC2622] rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">🍽</span>
-            </div>
+    <AuthFrame
+      title="Create an account"
+      subtitle="Join Dine Events to streamline event planning, billing, staffing, and service."
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="fullName" className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-900">
+            Full name
+          </label>
+          <div className="relative">
+            <UserRound className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              id="fullName"
+              type="text"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleChange}
+              placeholder="Jane Doe"
+              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-[#CC2622] focus:bg-white focus:ring-2 focus:ring-[#CC2622]/15"
+            />
           </div>
+        </div>
 
-          {/* Heading */}
-          <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">Create an account</h1>
-          <p className="text-center text-gray-600 mb-8">Join Dine Events to streamline your event management.</p>
+        <div>
+          <label htmlFor="businessName" className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-900">
+            Business name
+          </label>
+          <div className="relative">
+            <Building2 className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              id="businessName"
+              type="text"
+              name="businessName"
+              value={formData.businessName}
+              onChange={handleChange}
+              placeholder="Jane's Events LLC"
+              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-[#CC2622] focus:bg-white focus:ring-2 focus:ring-[#CC2622]/15"
+            />
+          </div>
+        </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Full Name */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">FULL NAME</label>
-              <input
-                type="text"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                placeholder="Jane Doe"
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#CC2622] focus:ring-1 focus:ring-[#CC2622] placeholder-gray-400"
-              />
-            </div>
+        <div>
+          <label htmlFor="email" className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-900">
+            Email address
+          </label>
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              id="email"
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="jane@example.com"
+              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-[#CC2622] focus:bg-white focus:ring-2 focus:ring-[#CC2622]/15"
+            />
+          </div>
+        </div>
 
-            {/* Business Name */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">BUSINESS NAME</label>
-              <input
-                type="text"
-                name="businessName"
-                value={formData.businessName}
-                onChange={handleChange}
-                placeholder="Jane's Events LLC"
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#CC2622] focus:ring-1 focus:ring-[#CC2622] placeholder-gray-400"
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">EMAIL ADDRESS</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="jane@example.com"
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#CC2622] focus:ring-1 focus:ring-[#CC2622] placeholder-gray-400"
-              />
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">PASSWORD</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-2 pr-12 border border-gray-200 rounded-lg focus:outline-none focus:border-[#CC2622] focus:ring-1 focus:ring-[#CC2622] placeholder-gray-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Must be at least 8 characters long.</p>
-            </div>
-
-            {/* Create Account Button */}
+        <div>
+          <label htmlFor="password" className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-900">
+            Password
+          </label>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="••••••••"
+              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 pr-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-[#CC2622] focus:bg-white focus:ring-2 focus:ring-[#CC2622]/15"
+            />
             <button
-              type="submit"
-              className="w-full bg-[#CC2622] text-white font-semibold py-3 rounded-lg hover:bg-[#A01F1A] transition mt-6"
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              CREATE ACCOUNT
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
-          </form>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px bg-gray-200"></div>
-            <span className="text-gray-500 text-sm">or</span>
-            <div className="flex-1 h-px bg-gray-200"></div>
           </div>
-
-          {/* Sign In Link */}
-          <p className="text-center text-gray-600 text-sm">
-            Already have an account?{' '}
-            <Link href="/login" className="text-[#CC2622] font-semibold hover:underline">
-              Sign In
-            </Link>
-          </p>
+          <p className="mt-2 text-sm text-gray-500">Must be at least 8 characters long.</p>
         </div>
 
-        {/* Icons */}
-        <div className="flex justify-center gap-8 mt-12 text-gray-400">
-          <span className="text-3xl">🍴</span>
-          <span className="text-3xl">🪑</span>
-          <span className="text-3xl">🎉</span>
-        </div>
+        <button
+          type="submit"
+          className="h-12 w-full rounded-lg bg-[#CC2622] text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#A01F1A] focus:outline-none focus:ring-2 focus:ring-[#CC2622]/30 focus:ring-offset-2"
+        >
+          Create account
+        </button>
+      </form>
+
+      <div className="my-7 flex items-center gap-3">
+        <div className="h-px flex-1 bg-gray-200" />
+        <span className="text-sm text-gray-500">or</span>
+        <div className="h-px flex-1 bg-gray-200" />
       </div>
-    </div>
+
+      <p className="text-center text-base text-gray-600">
+        Already have an account?{' '}
+        <Link href="/login" className="font-semibold text-[#CC2622] transition hover:text-[#A01F1A]">
+          Sign in
+        </Link>
+      </p>
+    </AuthFrame>
   )
 }

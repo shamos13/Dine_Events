@@ -6,6 +6,7 @@ import com.dineevents.staff.DTO.Request.StaffAssignmentRequestDTO;
 import com.dineevents.staff.DTO.Response.StaffAssignmentResponse;
 import com.dineevents.staff.Entity.Staff;
 import com.dineevents.staff.Entity.StaffAssignment;
+import com.dineevents.staff.Enum.AssignmentStatus;
 import com.dineevents.staff.Repository.StaffAssignmentRepository;
 import com.dineevents.staff.Repository.StaffRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -38,6 +39,13 @@ public class StaffAssignmentService {
         return staffAssignmentRepository.findAll().stream().map(this::toResponseDTO).toList();
     }
 
+    public List<StaffAssignmentResponse> getStaffAssignmentsByEventId(Long eventId){
+        log.info("Retrieving staff assignments for EventID {}", eventId);
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new EntityNotFoundException("Event not found: " + eventId));
+        return staffAssignmentRepository.findByEvent(event).stream().map(this::toResponseDTO).toList();
+    }
+
 
     // Mappers DTO to Entity(From Client)
     public StaffAssignment toEntity(StaffAssignmentRequestDTO dto){
@@ -50,8 +58,10 @@ public class StaffAssignmentService {
         staffAssignment.setEvent(event);
         staffAssignment.setStaff(staff);
 
-        //Snapshotting the staff salary
-        staffAssignment.setSalaryAtAssignment(staff.getStaffSalary());
+        // Snapshot the staff salary unless a custom assignment salary is provided.
+        staffAssignment.setSalaryAtAssignment(dto.getSalaryAtAssignment() != null ? dto.getSalaryAtAssignment() : staff.getStaffSalary());
+        staffAssignment.setRoleForEvent(staff.getStaffRole());
+        staffAssignment.setAssignmentStatus(AssignmentStatus.ASSIGNED);
         return staffAssignment;
     }
 
@@ -59,8 +69,17 @@ public class StaffAssignmentService {
     public StaffAssignmentResponse toResponseDTO(StaffAssignment staffAssignment){
         StaffAssignmentResponse response = new StaffAssignmentResponse();
         response.setStaffAssignmentId(staffAssignment.getStaffAssignmentId());
-        response.setStaffName(staffAssignment.getStaff().getStaffName());
-        response.setEventName(staffAssignment.getEvent().getEventName());
+        Staff staff = staffAssignment.getStaff();
+        Event event = staffAssignment.getEvent();
+        response.setStaffId(staff.getStaffId());
+        response.setEventId(event.getEventId());
+        response.setStaffName(staff.getStaffName());
+        response.setStaffRole(staff.getStaffRole());
+        response.setRoleForEvent(staffAssignment.getRoleForEvent());
+        response.setEventName(event.getEventName());
+        response.setSalaryAtAssignment(staffAssignment.getSalaryAtAssignment());
+        response.setAssignmentStatus(staffAssignment.getAssignmentStatus() != null ? staffAssignment.getAssignmentStatus().name() : null);
+        response.setResponsibilities(staff.getResponsibilities());
         return response;
     }
 }

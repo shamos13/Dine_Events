@@ -27,12 +27,14 @@ public class Event {
     private String eventName;
     private int guestCount;
     private String eventVenue;
+    private String eventLocation;
 
     @Enumerated(EnumType.STRING)
     private EventStatus eventStatus;
 
     @Column(nullable = false)
     private OffsetDateTime eventDateTime;
+    private OffsetDateTime eventEndDateTime;
 
     // Relationship with the Client (Many to One)
     @ManyToOne

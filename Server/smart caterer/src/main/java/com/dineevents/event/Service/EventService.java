@@ -47,7 +47,9 @@ public class EventService {
         event.setEventName(dto.getEventName());
         event.setEventStatus(dto.getEventStatus());
         event.setEventVenue(dto.getEventVenue());
+        event.setEventLocation(dto.getEventLocation());
         event.setEventDateTime(dto.getEventDateTime());
+        event.setEventEndDateTime(dto.getEventEndDateTime());
         event.setGuestCount(dto.getGuestCount());
 
         // Set the client reference
@@ -67,7 +69,9 @@ public class EventService {
         dto.setEventName(event.getEventName());
         dto.setEventStatus(event.getEventStatus());
         dto.setEventVenue(event.getEventVenue());
+        dto.setEventLocation(event.getEventLocation());
         dto.setEventDateTime(event.getEventDateTime());
+        dto.setEventEndDateTime(event.getEventEndDateTime());
         dto.setGuestCount(event.getGuestCount());
 
         // Set the client name

@@ -2,3 +2,7 @@ spring:
   application:
     name: smart caterer
 
+app:
+  cors:
+    allowed-origins:
+      - http://localhost:3000

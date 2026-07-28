@@ -12,7 +12,9 @@ public class EventResponseDTO {
     private int guestCount;
     private EventStatus eventStatus;
     private String eventVenue;
+    private String eventLocation;
     private OffsetDateTime eventDateTime;
+    private OffsetDateTime eventEndDateTime;
     private String clientName;
     private String clientPhone;
     private String clientEmail;
