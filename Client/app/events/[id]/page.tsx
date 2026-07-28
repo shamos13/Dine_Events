@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Archive, ChevronRight } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import Billing from '../event-management/Billing'
@@ -14,7 +14,9 @@ import Menu from '../event-management/Menu'
 import Notes from '../event-management/Notes'
 import Rentals from '../event-management/Rentals'
 import Staff from '../event-management/Staff'
-import { eventRecords, type EventRecord } from '../event-management/event-data'
+import { toEventRecord, type EventRecord } from '../event-management/event-data'
+import { ApiError } from '@/lib/api/client'
+import { getEvents } from '@/lib/api/events'
 
 const tabs = ['Details', 'Billing', 'Menu', 'Staff', 'Rentals', 'Notes', 'Files', 'Communication'] as const
 type Tab = (typeof tabs)[number]
@@ -33,7 +35,23 @@ const tabContent: Record<Tab, (event: EventRecord) => React.ReactNode> = {
 export default function EventDetails() {
   const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState<Tab>('Details')
-  const event = eventRecords[id] ?? eventRecords['1']
+  const [event, setEvent] = useState<EventRecord | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    getEvents()
+      .then((events) => {
+        const found = events.find((item) => item.eventId === Number(id))
+        if (!found) throw new ApiError({ status: 404, error: 'Not Found', message: 'Event not found.' })
+        setEvent(toEventRecord(found))
+      })
+      .catch((reason: unknown) => setError(reason instanceof ApiError ? reason.message : 'Unable to load event.'))
+      .finally(() => setLoading(false))
+  }, [id])
+
+  if (loading) return <div className="min-h-screen bg-[#f7f8fc]"><Header /><main className="mx-auto w-full max-w-[1440px] px-6 py-12 text-slate-600 lg:px-8">Loading event...</main><Footer /></div>
+  if (error || !event) return <div className="min-h-screen bg-[#f7f8fc]"><Header /><main className="mx-auto w-full max-w-[1440px] px-6 py-12 lg:px-8"><p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error ?? 'Event not found.'}</p></main><Footer /></div>
 
   return <div className="min-h-screen bg-[#f7f8fc] text-slate-900">
     <Header />
