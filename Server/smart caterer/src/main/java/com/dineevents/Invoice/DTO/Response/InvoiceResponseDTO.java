@@ -12,6 +12,7 @@ import java.time.OffsetDateTime;
 public class InvoiceResponseDTO {
         private Long invoiceId;
         private String invoiceNumber;
+        private Long eventId;
         private String eventName;
         private String clientName;
         private BigDecimal amountDue;
