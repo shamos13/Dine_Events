@@ -1,12 +1,14 @@
 'use client'
 
-import { Bell, Settings, User, Menu } from 'lucide-react'
+import { Bell, LogOut, Settings, User, Menu } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useAuth } from '@/lib/auth-context'
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
+  const { user, logout } = useAuth()
 
   return (
     <header className="border-b border-gray-200 bg-white sticky top-0 z-40">
@@ -94,9 +96,29 @@ export default function Header() {
           <button className="text-gray-600 hover:text-[#CC2622] transition p-2">
             <Settings size={20} />
           </button>
-          <button className="text-gray-600 hover:text-[#CC2622] transition p-2">
-            <User size={20} />
-          </button>
+          <div className="relative group">
+            <button
+              className="text-gray-600 hover:text-[#CC2622] transition p-2 flex items-center gap-1"
+              title={user?.fullName}
+            >
+              <User size={20} />
+            </button>
+            <div className="absolute top-full right-0 mt-0 w-56 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition">
+              {user && (
+                <div className="px-4 py-3 border-b border-gray-200">
+                  <p className="text-sm font-semibold text-gray-900">{user.fullName}</p>
+                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                </div>
+              )}
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#CC2622]"
+              >
+                <LogOut size={16} />
+                Sign out
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </header>
