@@ -1,12 +1,17 @@
 'use client'
 
 import AuthFrame from '@/components/AuthFrame'
+import { ApiError } from '@/lib/api/client'
+import { useAuth } from '@/lib/auth-context'
 import { Building2, Eye, EyeOff, Lock, Mail, UserRound } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 
 export default function Signup() {
+  const { register } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     fullName: '',
     businessName: '',
@@ -22,8 +27,17 @@ export default function Signup() {
     }))
   }
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
+    setError(null)
+    setIsSubmitting(true)
+    try {
+      await register(formData)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Unable to create account. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -113,11 +127,18 @@ export default function Signup() {
           <p className="mt-2 text-sm text-gray-500">Must be at least 8 characters long.</p>
         </div>
 
+        {error && (
+          <p role="alert" className="text-sm font-medium text-red-600">
+            {error}
+          </p>
+        )}
+
         <button
           type="submit"
-          className="h-12 w-full rounded-lg bg-[#CC2622] text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#A01F1A] focus:outline-none focus:ring-2 focus:ring-[#CC2622]/30 focus:ring-offset-2"
+          disabled={isSubmitting}
+          className="h-12 w-full rounded-lg bg-[#CC2622] text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#A01F1A] focus:outline-none focus:ring-2 focus:ring-[#CC2622]/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Create account
+          {isSubmitting ? 'Creating account…' : 'Create account'}
         </button>
       </form>
 
