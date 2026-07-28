@@ -28,4 +28,9 @@ public class StaffAssignmentController {
     public ResponseEntity<List<StaffAssignmentResponse>> getAllStaffAssignments(){
         return ResponseEntity.ok(staffAssignmentService.getAllStaffAssignments());
     }
+
+    @GetMapping("/event/{eventId}")
+    public ResponseEntity<List<StaffAssignmentResponse>> getStaffAssignmentsByEvent(@PathVariable Long eventId){
+        return ResponseEntity.ok(staffAssignmentService.getStaffAssignmentsByEventId(eventId));
+    }
 }
