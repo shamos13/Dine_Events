@@ -10,6 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import jakarta.persistence.EntityNotFoundException;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +38,16 @@ public class InvoiceService {
         return toResponseDTO(savedInvoice);
     }
 
+    public List<InvoiceResponseDTO> getAllInvoices() {
+        return invoiceRepository.findAll().stream().map(this::toResponseDTO).toList();
+    }
+
+    public InvoiceResponseDTO getInvoiceById(Long invoiceId) {
+        Invoice invoice = invoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new EntityNotFoundException("Invoice not found: " + invoiceId));
+        return toResponseDTO(invoice);
+    }
+
 
     // Generate Invoice Number
     private String generateInvoiceNumber() {
@@ -46,6 +59,7 @@ public class InvoiceService {
         InvoiceResponseDTO dto = new InvoiceResponseDTO();
         dto.setInvoiceId(invoice.getInvoiceId());
         dto.setInvoiceNumber(invoice.getInvoiceNumber());
+        dto.setEventId(invoice.getEvent().getEventId());
         dto.setEventName(invoice.getEvent().getEventName());
 
         // Get client name from Event

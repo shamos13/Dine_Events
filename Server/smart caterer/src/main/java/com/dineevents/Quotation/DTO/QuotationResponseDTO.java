@@ -13,6 +13,7 @@ public class QuotationResponseDTO {
     private Long quotationId;
     private String quotationNumber;
     private String quotationName;
+    private Long eventId;
     private String eventName;
     private String clientName;
     private String clientPhone;
