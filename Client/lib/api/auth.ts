@@ -2,6 +2,7 @@ import { apiClient } from './client'
 
 export type AuthResponse = {
   token: string
+  refreshToken?: string
   email: string
   fullName: string
   businessName: string | null

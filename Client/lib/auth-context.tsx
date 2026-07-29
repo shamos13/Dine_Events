@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { useRouter } from 'next/navigation'
 import { login as loginRequest, register as registerRequest } from '@/lib/api/auth'
 import type { AuthResponse, LoginRequest, RegisterRequest } from '@/lib/api/auth'
-import { clearToken, setToken } from '@/lib/api/client'
+import { clearSession, setSessionTokens, setToken, USER_KEY } from '@/lib/api/client'
 
 type AuthUser = {
   email: string
@@ -21,10 +21,14 @@ type AuthContextValue = {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
-const USER_KEY = 'dine_events_user'
 
 function storeSession(auth: AuthResponse): AuthUser {
-  setToken(auth.token)
+  if (auth.refreshToken) {
+    setSessionTokens(auth.token, auth.refreshToken)
+  } else {
+    setToken(auth.token)
+  }
+
   const user: AuthUser = {
     email: auth.email,
     fullName: auth.fullName,
@@ -45,8 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setUser(JSON.parse(storedUser))
       } catch {
-        clearToken()
-        localStorage.removeItem(USER_KEY)
+        clearSession()
       }
     }
     setIsLoading(false)
@@ -71,8 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const logout = useCallback(() => {
-    clearToken()
-    localStorage.removeItem(USER_KEY)
+    clearSession()
     setUser(null)
     router.push('/login')
   }, [router])
