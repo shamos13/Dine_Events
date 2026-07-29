@@ -21,6 +21,7 @@ import Staff from '../event-management/Staff'
 import { toEventRecord, type EventRecord } from '../event-management/event-data'
 import { ApiError } from '@/lib/api/client'
 import { getEvents } from '@/lib/api/events'
+import { getQuotations, type QuotationResponse } from '@/lib/api/quotations'
 
 const tabs = ['Details', 'Billing', 'Menu', 'Staff', 'Rentals', 'Notes', 'Files', 'Communication'] as const
 type Tab = (typeof tabs)[number]
@@ -29,6 +30,7 @@ export default function EventDetails() {
   const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState<Tab>('Details')
   const [event, setEvent] = useState<EventRecord | null>(null)
+  const [currentQuotation, setCurrentQuotation] = useState<QuotationResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -39,11 +41,15 @@ export default function EventDetails() {
   const [currentInvoiceData, setCurrentInvoiceData] = useState<InvoiceTemplateData | null>(null)
 
   useEffect(() => {
-    getEvents()
-      .then((events) => {
+    Promise.all([getEvents(), getQuotations().catch(() => [])])
+      .then(([events, quotations]) => {
         const found = events.find((item) => item.eventId === Number(id))
         if (!found) throw new ApiError({ status: 404, error: 'Not Found', message: 'Event not found.' })
         setEvent(toEventRecord(found))
+        const latestQuotation = quotations
+          .filter((quotation) => quotation.eventId === found.eventId)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null
+        setCurrentQuotation(latestQuotation)
       })
       .catch((reason: unknown) => setError(reason instanceof ApiError ? reason.message : 'Unable to load event.'))
       .finally(() => setLoading(false))
@@ -76,7 +82,7 @@ export default function EventDetails() {
   if (previewInvoiceData) {
     return (
       <div className="min-h-screen bg-[#f7f8fc] text-slate-900 flex flex-col">
-        <Header />
+        <div className="print:hidden"><Header /></div>
         <main className="flex-1 mx-auto w-full max-w-[1440px] px-6 py-8 lg:px-8">
           <button
             onClick={() => {
@@ -98,7 +104,7 @@ export default function EventDetails() {
             }}
           />
         </main>
-        <Footer />
+        <div className="print:hidden"><Footer /></div>
       </div>
     )
   }
@@ -179,25 +185,32 @@ export default function EventDetails() {
         onClose={() => setDraftModalOpen(false)}
         onPreview={handleDraftPreview}
         onSendInvoice={handleDraftSendInvoice}
-        invoiceNumber="#INV-2026-005"
-        totalEventAmount={1250000}
+        invoiceNumber={currentQuotation?.quotationNumber ?? 'Draft'}
+        totalEventAmount={Number(currentQuotation?.total ?? 0)}
         eventData={{
           eventName: event.name,
-          clientName: event.client,
-          clientEmail: event.email,
+          clientName: currentQuotation?.clientName ?? event.client,
+          clientEmail: currentQuotation?.clientEmail ?? event.email,
           eventDate: event.date,
           eventVenue: event.venue,
+          lineItems: currentQuotation?.lineItems.map((item) => ({
+            description: item.lineItemDescription,
+            subdescription: item.lineItemType.replaceAll('_', ' '),
+            qty: item.quantity,
+            unitPrice: item.unitPriceAtQuotation,
+            total: item.totalPrice,
+          })),
         }}
       />
 
       <SendInvoiceModal
         isOpen={sendModalOpen}
         onClose={() => setSendModalOpen(false)}
-        invoiceNumber={currentInvoiceData?.invoiceNumber ? `INV-${currentInvoiceData.invoiceNumber}` : 'INV-2026-005'}
+        invoiceNumber={currentInvoiceData?.invoiceNumber ?? 'Draft'}
         eventName={event.name}
         clientName={event.client}
         clientEmail={event.email}
-        totalAmount={currentInvoiceData?.totalDue || 1250000}
+        totalAmount={currentInvoiceData?.totalDue ?? Number(currentQuotation?.total ?? 0)}
       />
 
       <Footer />
