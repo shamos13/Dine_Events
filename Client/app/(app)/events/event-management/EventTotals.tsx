@@ -38,9 +38,15 @@ export function groupLineItems(lineItems: QuotationLineItemResponse[]) {
   return Array.from(totals.entries())
 }
 
-export function EventTotals({ eventId, className = '' }: { eventId: number; className?: string }) {
+export function EventTotals({ eventId, className = '', liveTotals }: { eventId: number; className?: string; liveTotals?: Partial<Record<LineItemType, number>> }) {
   const { currentQuotation, loading, error } = useEventQuotation(eventId)
-  const totalsByType = useMemo(() => groupLineItems(currentQuotation?.lineItems ?? []), [currentQuotation])
+  const totalsByType = useMemo(() => {
+    const totals = new Map<LineItemType, number>(groupLineItems(currentQuotation?.lineItems ?? []))
+    Object.entries(liveTotals ?? {}).forEach(([type, value]) => totals.set(type as LineItemType, Number(value ?? 0)))
+    return Array.from(totals.entries())
+  }, [currentQuotation, liveTotals])
+  const itemTotal = useMemo(() => totalsByType.reduce((sum, [, value]) => sum + value, 0), [totalsByType])
+  const total = liveTotals ? itemTotal : Number(currentQuotation?.total ?? 0)
 
   return (
     <Panel className={className}>
@@ -52,8 +58,8 @@ export function EventTotals({ eventId, className = '' }: { eventId: number; clas
       ) : (
         <div className="space-y-4 text-sm">
           {totalsByType.length ? totalsByType.map(([type, value]) => <Total key={type} label={lineItemLabels[type]} value={currency(value)} />) : <p className="text-sm text-slate-600">No billed items from server yet.</p>}
-          <div className="border-t border-[#efb6b0] pt-4"><Total label="Item Total" value={currency(currentQuotation?.subTotal ?? 0)} /></div>
-          <div className="border-t border-blue-200 pt-4"><Total label={<span className="text-xl font-bold">Total</span>} value={<span className="text-xl font-bold text-[#cc2622]">{currency(currentQuotation?.total ?? 0)}</span>} /></div>
+          <div className="border-t border-[#efb6b0] pt-4"><Total label="Item Total" value={currency(liveTotals ? itemTotal : currentQuotation?.subTotal ?? 0)} /></div>
+          <div className="border-t border-blue-200 pt-4"><Total label={<span className="text-xl font-bold">Total</span>} value={<span className="text-xl font-bold text-[#cc2622]">{currency(total)}</span>} /></div>
         </div>
       )}
     </Panel>

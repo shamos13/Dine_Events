@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Calendar, Check, Download, Eye, Send, X } from 'lucide-react'
 import type { InvoiceDisplayOptions, InvoiceTemplateData } from './InvoiceTemplate'
 
@@ -11,7 +11,7 @@ export interface DraftInvoiceModalProps {
   onSendInvoice: (data: InvoiceTemplateData) => void
   onSaveDraft?: (data: InvoiceTemplateData) => void
   invoiceNumber?: string
-  totalEventAmount?: number
+  totalEventAmount: number
   eventData?: {
     eventName?: string
     clientName?: string
@@ -29,8 +29,8 @@ export default function DraftInvoiceModal({
   onPreview,
   onSendInvoice,
   onSaveDraft,
-  invoiceNumber = '#INV-2026-005',
-  totalEventAmount = 1250000,
+  invoiceNumber = 'Draft',
+  totalEventAmount,
   eventData,
 }: DraftInvoiceModalProps) {
   const [documentTitle, setDocumentTitle] = useState('Invoice')
@@ -48,6 +48,10 @@ export default function DraftInvoiceModal({
     showPackageComponents: false,
   })
 
+  useEffect(() => {
+    setAmount(totalEventAmount)
+  }, [totalEventAmount])
+
   if (!isOpen) return null
 
   const handleQuickCalc = (option: '10%' | '25%' | '50%' | 'Full balance') => {
@@ -61,33 +65,22 @@ export default function DraftInvoiceModal({
   const buildTemplateData = (): InvoiceTemplateData => {
     const rawNum = invoiceNumber.replace('#', '')
     const subtotal = amount
-    const taxAmount = subtotal * 0.05 // 5% tax or matching calculation
-    const totalDue = subtotal + taxAmount
 
     return {
       invoiceNumber: rawNum,
       dueDate: dueDate,
       status: 'Pending Payment',
-      clientName: eventData?.clientName || 'David Johnson',
-      clientContact: 'Attn: Procurement',
-      clientAddress: eventData?.clientAddress || '123 Enterprise Rd, Suite 100',
-      clientEmail: eventData?.clientEmail || 'david.johnson@example.com',
-      eventName: eventData?.eventName || 'Luxury Gala: Night of Stars',
-      eventDate: eventData?.eventDate || 'Oct 24, 2026',
-      eventVenue: eventData?.eventVenue || 'Grand Ballroom',
-      lineItems: eventData?.lineItems || [
-        {
-          description: documentTitle || 'Event Catering & Services',
-          subdescription: 'Package components & full service catering',
-          qty: 1,
-          unitPrice: amount,
-          total: amount,
-        },
-      ],
+      clientName: eventData?.clientName,
+      clientAddress: eventData?.clientAddress,
+      clientEmail: eventData?.clientEmail,
+      eventName: eventData?.eventName,
+      eventDate: eventData?.eventDate,
+      eventVenue: eventData?.eventVenue,
+      lineItems: eventData?.lineItems ?? [],
       subtotal: subtotal,
-      taxRate: 5,
-      taxAmount: taxAmount,
-      totalDue: totalDue,
+      taxRate: 0,
+      taxAmount: 0,
+      totalDue: subtotal,
       displayOptions: displayOptions,
     }
   }

@@ -1,6 +1,7 @@
 package com.dineevents.config;
 
 import com.dineevents.auth.Security.JwtAuthenticationFilter;
+import com.dineevents.auth.Security.RestAuthenticationEntryPoint;
 import com.dineevents.auth.Service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +30,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
+    private final RestAuthenticationEntryPoint authenticationEntryPoint;
 
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
@@ -74,6 +76,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

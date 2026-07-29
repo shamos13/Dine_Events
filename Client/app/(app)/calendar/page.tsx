@@ -2,47 +2,111 @@
 
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { getEvents, type EventResponse, type EventStatus } from '@/lib/api/events'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
 
-const calendarDays = [
-  { day: 28, event: null },
-  { day: 29, event: null },
-  { day: 30, event: null },
-  { day: 1, event: null },
-  { day: 2, event: { name: 'Event #7', time: '12:00 PM', client: 'Douglas Andanje', color: 'bg-purple-100' } },
-  { day: 3, event: null },
-  { day: 4, event: { name: 'Acme Quarterly Lunch', time: '4:00 PM - 8:00 PM', client: 'Acme Corp', color: 'bg-blue-100' } },
-  { day: 5, event: null },
-  { day: 6, event: { name: 'Ruracia', time: '12:00 PM', client: 'Gari Zetu', color: 'bg-purple-100' } },
-  { day: 7, event: null },
-  { day: 8, event: null },
-  { day: 9, event: null },
-  { day: 10, event: null },
-  { day: 11, event: { name: 'Johnson Wedding Reception', time: '5:00 PM - 10:00 PM', client: 'David & Emily Johnson', color: 'bg-orange-100' } },
-  { day: 12, event: null },
-  { day: 13, event: null },
-  { day: 14, event: null },
-  { day: 15, event: null },
-  { day: 16, event: null },
-  { day: 17, event: null },
-  { day: 18, event: null },
-  { day: 19, event: null },
-  { day: 20, event: null },
-  { day: 21, event: null },
-  { day: 22, event: null },
-  { day: 23, event: { name: 'Acme Annual Conference', time: '12:00 PM - 8:00 PM', client: 'Acme Corp', color: 'bg-purple-100' } },
-  { day: 24, event: null },
-  { day: 25, event: null },
-  { day: 26, event: null },
-  { day: 27, event: null },
-  { day: 28, event: null },
-  { day: 29, event: null },
-  { day: 30, event: null },
-  { day: 31, event: null },
-  { day: 1, event: null },
-]
+type CalendarDay = {
+  date: Date
+  key: string
+  isCurrentMonth: boolean
+}
+
+const statusStyles: Record<EventStatus, string> = {
+  INQUIRY: 'bg-purple-100 border-purple-200',
+  TENTATIVE: 'bg-orange-100 border-orange-200',
+  CONFIRMED: 'bg-blue-100 border-blue-200',
+  COMPLETED: 'bg-green-100 border-green-200',
+  CANCELLED: 'bg-red-100 border-red-200',
+}
+
+const dateKey = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const getEventDateKey = (event: EventResponse) => dateKey(new Date(event.eventDateTime))
+
+const getCalendarDays = (monthDate: Date): CalendarDay[] => {
+  const year = monthDate.getFullYear()
+  const month = monthDate.getMonth()
+  const firstDay = new Date(year, month, 1)
+  const start = new Date(year, month, 1 - firstDay.getDay())
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start)
+    date.setDate(start.getDate() + index)
+    return {
+      date,
+      key: dateKey(date),
+      isCurrentMonth: date.getMonth() === month,
+    }
+  })
+}
+
+const formatEventTime = (event: EventResponse) => {
+  const start = new Date(event.eventDateTime)
+  const startTime = start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+
+  if (!event.eventEndDateTime) return startTime
+
+  const end = new Date(event.eventEndDateTime)
+  const endTime = end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  return `${startTime} - ${endTime}`
+}
 
 export default function Calendar() {
+  const today = useMemo(() => new Date(), [])
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
+  const [events, setEvents] = useState<EventResponse[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+
+    getEvents()
+      .then((data) => {
+        if (!active) return
+        setEvents(data.filter((event) => event.eventDateTime))
+        setError(null)
+      })
+      .catch(() => {
+        if (!active) return
+        setError('Unable to load calendar events.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const calendarDays = useMemo(() => getCalendarDays(visibleMonth), [visibleMonth])
+
+  const eventsByDate = useMemo(() => {
+    return events.reduce<Record<string, EventResponse[]>>((groups, event) => {
+      const key = getEventDateKey(event)
+      groups[key] = [...(groups[key] ?? []), event]
+      return groups
+    }, {})
+  }, [events])
+
+  const monthLabel = visibleMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+
+  const moveMonth = (offset: number) => {
+    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))
+  }
+
+  const showToday = () => {
+    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1))
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
@@ -86,19 +150,24 @@ export default function Calendar() {
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           {/* Calendar Header */}
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">July 2026</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{monthLabel}</h2>
             <div className="flex items-center gap-3">
-              <button className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <button onClick={() => moveMonth(-1)} className="inline-flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <ChevronLeft className="h-4 w-4" />
                 Previous
               </button>
-              <button className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <button onClick={showToday} className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
                 Today
               </button>
-              <button className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <button onClick={() => moveMonth(1)} className="inline-flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
                 Next
+                <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
+
+          {loading && <p className="mb-4 text-sm text-gray-600">Loading calendar events...</p>}
+          {error && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
           {/* Calendar Grid */}
           <div className="grid grid-cols-7 gap-1">
@@ -110,16 +179,18 @@ export default function Calendar() {
             ))}
 
             {/* Calendar days */}
-            {calendarDays.map((item, idx) => (
-              <div key={idx} className="border border-gray-200 min-h-32 p-2 bg-white hover:bg-gray-50 transition">
-                <div className="text-sm font-semibold text-gray-900 mb-2">{item.day}</div>
-                {item.event && (
-                  <div className={`${item.event.color} rounded p-2 text-xs`}>
-                    <p className="font-semibold text-gray-900">{item.event.time}</p>
-                    <p className="font-semibold text-gray-900 line-clamp-2">{item.event.name}</p>
-                    <p className="text-gray-700 line-clamp-1">{item.event.client}</p>
-                  </div>
-                )}
+            {calendarDays.map((item) => (
+              <div key={item.key} className={`border border-gray-200 min-h-32 p-2 transition ${item.isCurrentMonth ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 text-gray-400'}`}>
+                <div className={`text-sm font-semibold mb-2 ${item.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>{item.date.getDate()}</div>
+                <div className="space-y-2">
+                  {(eventsByDate[item.key] ?? []).map((event) => (
+                    <Link key={event.eventId} href={`/events/${event.eventId}`} className={`${statusStyles[event.eventStatus]} block rounded border p-2 text-xs hover:ring-1 hover:ring-gray-300`}>
+                      <p className="font-semibold text-gray-900">{formatEventTime(event)}</p>
+                      <p className="font-semibold text-gray-900 line-clamp-2">{event.eventName}</p>
+                      {event.clientName && <p className="text-gray-700 line-clamp-1">{event.clientName}</p>}
+                    </Link>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

@@ -16,7 +16,6 @@ import {
 } from '@/lib/api/inventory'
 import type { EventRecord } from './event-data'
 import { OutlineButton, Panel, SectionHeading } from './components'
-import { EventTotals } from './EventTotals'
 
 const emptyInventoryForm = {
   inventoryName: '',
@@ -137,7 +136,7 @@ export default function Rentals({
           </Panel>
         </div>
 
-        <EventSidebarActions eventId={event.id} onGenerateInvoice={onGenerateInvoice} onGenerateProposal={onGenerateProposal} />
+        <EventSidebarActions eventId={event.id} liveTotals={{ RENTAL: subtotal }} onGenerateInvoice={onGenerateInvoice} onGenerateProposal={onGenerateProposal} />
       </div>
 
       {drawerOpen && <AddRentalDrawer eventId={event.id} allocatedInventoryNames={allocations.map((allocation) => allocation.inventoryName)} onClose={() => setDrawerOpen(false)} onAllocated={loadAllocations} />}

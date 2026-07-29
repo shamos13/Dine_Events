@@ -5,18 +5,23 @@ import { ApiError } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth-context'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function Login() {
   const { login } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [sessionMessage, setSessionMessage] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     keepSignedIn: false,
   })
+
+  useEffect(() => {
+    setSessionMessage(new URLSearchParams(window.location.search).get('message'))
+  }, [])
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, type, value, checked } = event.target
@@ -108,6 +113,11 @@ export default function Login() {
           </label>
         </div>
 
+        {sessionMessage && !error && (
+          <p role="status" className="text-sm font-medium text-slate-700">
+            {sessionMessage}
+          </p>
+        )}
         {error && (
           <p role="alert" className="text-sm font-medium text-red-600">
             {error}
