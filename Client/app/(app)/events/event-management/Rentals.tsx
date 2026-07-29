@@ -24,7 +24,17 @@ const emptyInventoryForm = {
   unitPrice: '',
 }
 
-export default function Rentals({ event }: { event: EventRecord }) {
+import EventSidebarActions from './EventSidebarActions'
+
+export default function Rentals({
+  event,
+  onGenerateInvoice,
+  onGenerateProposal,
+}: {
+  event: EventRecord
+  onGenerateInvoice?: () => void
+  onGenerateProposal?: () => void
+}) {
   const [allocations, setAllocations] = useState<InventoryAllocationResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -127,14 +137,7 @@ export default function Rentals({ event }: { event: EventRecord }) {
           </Panel>
         </div>
 
-        <aside className="space-y-6">
-          <EventTotals eventId={event.id} />
-          <div className="space-y-3">
-            <OutlineButton className="w-full bg-white py-4"><FileText className="h-4 w-4" />Create Report</OutlineButton>
-            <OutlineButton className="w-full bg-white py-4"><ClipboardList className="h-4 w-4" />Create Proposal</OutlineButton>
-            <OutlineButton className="w-full bg-white py-4"><ReceiptText className="h-4 w-4" />Create Invoice</OutlineButton>
-          </div>
-        </aside>
+        <EventSidebarActions eventId={event.id} onGenerateInvoice={onGenerateInvoice} onGenerateProposal={onGenerateProposal} />
       </div>
 
       {drawerOpen && <AddRentalDrawer eventId={event.id} allocatedInventoryNames={allocations.map((allocation) => allocation.inventoryName)} onClose={() => setDrawerOpen(false)} onAllocated={loadAllocations} />}
