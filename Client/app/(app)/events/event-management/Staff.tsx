@@ -27,7 +27,17 @@ const emptyForm = {
   responsibilities: '',
 }
 
-export default function Staff({ event }: { event: EventRecord }) {
+import EventSidebarActions from './EventSidebarActions'
+
+export default function Staff({
+  event,
+  onGenerateInvoice,
+  onGenerateProposal,
+}: {
+  event: EventRecord
+  onGenerateInvoice?: () => void
+  onGenerateProposal?: () => void
+}) {
   const [assignments, setAssignments] = useState<StaffAssignmentResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -119,29 +129,15 @@ export default function Staff({ event }: { event: EventRecord }) {
           </div>
         </Panel>
 
-        <aside className="space-y-6">
-          <EventTotals eventId={event.id} />
-          <div className="space-y-3">
-            <OutlineButton className="w-full bg-[#edf4ff] py-3">
-              <FileText className="h-4 w-4" />
-              Create Report
-            </OutlineButton>
-            <OutlineButton className="w-full bg-[#edf4ff] py-3">
-              <ClipboardList className="h-4 w-4" />
-              Create Proposal
-            </OutlineButton>
-            <button className="flex w-full items-center justify-center gap-2 rounded-md bg-[#cc2622] px-4 py-4 text-base font-bold text-white shadow-md transition hover:bg-[#a01f1a]">
-              <ReceiptText className="h-5 w-5" />
-              Create Invoice
-            </button>
-          </div>
+        <div className="space-y-6">
+          <EventSidebarActions eventId={event.id} onGenerateInvoice={onGenerateInvoice} onGenerateProposal={onGenerateProposal} />
           <Panel className="border-[#efb6b0] bg-[#dce9ff] p-8 text-center">
             <CircleHelp className="mx-auto h-11 w-11 text-[#cc2622]" />
             <h3 className="mt-5 text-base font-bold text-slate-950">Need assistance?</h3>
             <p className="mt-3 text-sm leading-6 text-[#3b1d1a]">Our kitchen and logistics teams are available 24/7 for event support.</p>
             <button className="mt-6 text-sm font-bold text-[#cc2622] transition hover:underline">Contact Support Center</button>
           </Panel>
-        </aside>
+        </div>
       </div>
 
       {drawerOpen && <AddStaffDrawer eventId={event.id} assignedStaffIds={assignments.map((assignment) => assignment.staffId)} onClose={() => setDrawerOpen(false)} onAssigned={loadAssignments} />}
