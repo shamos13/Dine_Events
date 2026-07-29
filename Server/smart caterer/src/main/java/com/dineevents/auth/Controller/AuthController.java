@@ -1,6 +1,7 @@
 package com.dineevents.auth.Controller;
 
 import com.dineevents.auth.DTO.Request.LoginRequestDTO;
+import com.dineevents.auth.DTO.Request.RefreshTokenRequestDTO;
 import com.dineevents.auth.DTO.Request.RegisterRequestDTO;
 import com.dineevents.auth.DTO.Response.AuthResponseDTO;
 import com.dineevents.auth.Service.AuthService;
@@ -25,5 +26,10 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody LoginRequestDTO dto) {
         return ResponseEntity.ok(authService.login(dto));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponseDTO> refresh(@Valid @RequestBody RefreshTokenRequestDTO dto) {
+        return ResponseEntity.ok(authService.refreshToken(dto));
     }
 }
