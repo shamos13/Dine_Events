@@ -4,6 +4,7 @@ import com.dineevents.Quotation.Enum.LineItemType;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class QuotationLineItemResponseDTO {
@@ -13,4 +14,5 @@ public class QuotationLineItemResponseDTO {
     private BigDecimal quantity;
     private BigDecimal unitPriceAtQuotation;
     private BigDecimal totalPrice;
+    private List<String> includedMenuItemNames;
 }
