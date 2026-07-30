@@ -5,6 +5,10 @@ import com.dineevents.Inventory.Enums.PricingType;
 import com.dineevents.Inventory.Repository.InventoryAllocationRepository;
 import com.dineevents.Invoice.DTO.Response.InvoiceResponseDTO;
 import com.dineevents.Invoice.Service.InvoiceService;
+import com.dineevents.Menu.Entity.EventMenuPackageSelection;
+import com.dineevents.Menu.Entity.MenuPackageItem;
+import com.dineevents.Menu.repository.EventMenuPackageSelectionRepository;
+import com.dineevents.Menu.repository.MenuPackageItemRepository;
 import com.dineevents.Quotation.DTO.QuotationLineItemResponseDTO;
 import com.dineevents.Quotation.DTO.QuotationResponseDTO;
 import com.dineevents.Quotation.DTO.Request.QuotationRequestDTO;
@@ -38,6 +42,8 @@ public class QuotationService {
     private final EventRepository eventRepository;
     private final StaffAssignmentRepository staffAssignmentRepository;
     private final InvoiceService invoiceService;
+    private final EventMenuPackageSelectionRepository eventMenuPackageSelectionRepository;
+    private final MenuPackageItemRepository menuPackageItemRepository;
 
     //Create a new quotation
     public QuotationResponseDTO createQuotation(QuotationRequestDTO dto){
@@ -66,6 +72,26 @@ public class QuotationService {
         quotation.setCreatedAt(OffsetDateTime.now());
 
         List<QuotationLineItem> lineItems = new ArrayList<>();
+
+        // Menu package line items — one row per package selected for this event
+        List<EventMenuPackageSelection> menuSelections = eventMenuPackageSelectionRepository.findByEvent(event);
+        for (EventMenuPackageSelection selection : menuSelections) {
+            int guestCount = selection.getGuestCountOverride() != null
+                    ? selection.getGuestCountOverride()
+                    : event.getGuestCount();
+
+            QuotationLineItem menuLine = new QuotationLineItem();
+            menuLine.setQuotation(quotation);
+            menuLine.setLineItemType(LineItemType.MENU_PACKAGE);
+            menuLine.setMenuPackage(selection.getMenuPackage());
+            menuLine.setDescription(selection.getMenuPackage().getPackageName());
+            menuLine.setQuantity(BigDecimal.valueOf(guestCount));
+            menuLine.setUnitPriceAtQuotation(selection.getMenuPackage().getPricePerPax());
+            menuLine.setLineTotal(
+                    selection.getMenuPackage().getPricePerPax().multiply(BigDecimal.valueOf(guestCount))
+            );
+            lineItems.add(menuLine);
+        }
 
         // Inventory line items
         List<InventoryItemAllocation> allocations =  inventoryAllocationRepository.findByEvent(event);
@@ -161,7 +187,7 @@ public class QuotationService {
             validUntil = dayBeforeEvent.isAfter(today) ? dayBeforeEvent : today;
         }
         return validUntil;
-        }
+    }
 
     //To Respsonse DTO
     private QuotationResponseDTO toResponseDTO(Quotation quotation){
@@ -194,6 +220,14 @@ public class QuotationService {
         dto.setQuantity(lineItem.getQuantity());
         dto.setUnitPriceAtQuotation(lineItem.getUnitPriceAtQuotation());
         dto.setTotalPrice(lineItem.getLineTotal());
+
+        if (lineItem.getLineItemType() == LineItemType.MENU_PACKAGE && lineItem.getMenuPackage() != null) {
+            List<MenuPackageItem> packageItems = menuPackageItemRepository
+                    .findByMenuPackage_MenuPackageId(lineItem.getMenuPackage().getMenuPackageId());
+            dto.setIncludedMenuItemNames(
+                    packageItems.stream().map(pi -> pi.getMenuItem().getMenuItemName()).toList()
+            );
+        }
         return dto;
     }
 
