@@ -5,6 +5,7 @@ import com.dineevents.Menu.DTO.Response.EventMenuPackageSelectionResponseDTO;
 import com.dineevents.Menu.Entity.EventMenuPackageSelection;
 import com.dineevents.Menu.Entity.MenuPackage;
 import com.dineevents.Menu.repository.EventMenuPackageSelectionRepository;
+import com.dineevents.Menu.repository.MenuPackageItemRepository;
 import com.dineevents.Menu.repository.MenuPackageRepository;
 import com.dineevents.event.Entity.Event;
 import com.dineevents.event.Repository.EventRepository;
@@ -23,6 +24,7 @@ public class EventMenuPackageSelectionService {
     private final EventMenuPackageSelectionRepository selectionRepository;
     private final EventRepository eventRepository;
     private final MenuPackageRepository menuPackageRepository;
+    private final MenuPackageItemRepository menuPackageItemRepository;
 
     public EventMenuPackageSelectionResponseDTO selectPackageForEvent(EventMenuPackageSelectionRequestDTO dto) {
         Event event = eventRepository.findById(dto.getEventId())
@@ -45,16 +47,34 @@ public class EventMenuPackageSelectionService {
         return selectionRepository.findByEvent(event).stream().map(this::toResponseDTO).toList();
     }
 
+    public void removeSelection(Long selectionId) {
+        EventMenuPackageSelection selection = selectionRepository.findById(selectionId)
+                .orElseThrow(() -> new EntityNotFoundException("Event menu package selection not found: " + selectionId));
+        selectionRepository.delete(selection);
+    }
+
     private EventMenuPackageSelectionResponseDTO toResponseDTO(EventMenuPackageSelection selection) {
+        MenuPackage menuPackage = selection.getMenuPackage();
         EventMenuPackageSelectionResponseDTO dto = new EventMenuPackageSelectionResponseDTO();
         dto.setSelectionId(selection.getSelectionId());
+        dto.setMenuPackageId(menuPackage.getMenuPackageId());
+        dto.setEventId(selection.getEvent().getEventId());
         dto.setEventName(selection.getEvent().getEventName());
-        dto.setPackageName(selection.getMenuPackage().getPackageName());
-        dto.setPricePerPax(selection.getMenuPackage().getPricePerPax());
+        dto.setPackageName(menuPackage.getPackageName());
+        dto.setServiceType(menuPackage.getServiceType());
+        dto.setMinGuests(menuPackage.getMinGuests());
+        dto.setPricePerPax(menuPackage.getPricePerPax());
         int guestCount = selection.getGuestCountOverride() != null
                 ? selection.getGuestCountOverride()
                 : selection.getEvent().getGuestCount();
         dto.setGuestCount(guestCount);
+        if (menuPackage.getMenuPackageId() != null) {
+            dto.setMenuItemNames(menuPackageItemRepository
+                    .findByMenuPackage_MenuPackageId(menuPackage.getMenuPackageId())
+                    .stream()
+                    .map(item -> item.getMenuItem().getMenuItemName())
+                    .toList());
+        }
         return dto;
     }
 }

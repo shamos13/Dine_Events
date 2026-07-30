@@ -160,6 +160,22 @@
   body {
     @apply bg-background text-foreground;
   }
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  select,
+  textarea {
+    @apply bg-white text-gray-900 placeholder:text-gray-500;
+    color-scheme: light;
+  }
+}
+
+@layer components {
+  .form-input {
+    @apply w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 outline-none transition focus:border-[#CC2622] focus:ring-2 focus:ring-[#CC2622]/20;
+  }
+
+  .form-select {
+    @apply w-full appearance-none rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 outline-none transition focus:border-[#CC2622] focus:ring-2 focus:ring-[#CC2622]/20;
+  }
 }
 
 /* Dine Events specific styles */

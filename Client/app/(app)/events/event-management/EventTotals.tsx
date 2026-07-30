@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '@/lib/api/client'
+import { getInventoryAllocationsByEvent } from '@/lib/api/inventory'
+import { getEventMenuSelections } from '@/lib/api/menu'
 import { getQuotations, type LineItemType, type QuotationLineItemResponse, type QuotationResponse } from '@/lib/api/quotations'
+import { getStaffAssignmentsByEvent } from '@/lib/api/staff'
 import { Panel, SectionHeading } from './components'
 
 export const lineItemLabels: Record<LineItemType, string> = {
@@ -38,15 +41,56 @@ export function groupLineItems(lineItems: QuotationLineItemResponse[]) {
   return Array.from(totals.entries())
 }
 
+function useCurrentEventTotals(eventId: number) {
+  const [totals, setTotals] = useState<Partial<Record<LineItemType, number>>>({})
+
+  useEffect(() => {
+    let active = true
+
+    Promise.all([
+      getEventMenuSelections(eventId),
+      getInventoryAllocationsByEvent(eventId),
+      getStaffAssignmentsByEvent(eventId),
+    ])
+      .then(([menuSelections, rentalAllocations, staffAssignments]) => {
+        if (!active) return
+
+        setTotals({
+          MENU_PACKAGE: menuSelections.reduce(
+            (sum, selection) => sum + Number(selection.pricePerPax ?? 0) * Number(selection.guestCount ?? 0),
+            0
+          ),
+          RENTAL: rentalAllocations.reduce((sum, allocation) => sum + Number(allocation.totalCost ?? 0), 0),
+          STAFF: staffAssignments.reduce((sum, assignment) => sum + Number(assignment.salaryAtAssignment ?? 0), 0),
+        })
+      })
+      .catch(() => {
+        if (active) setTotals({})
+      })
+
+    return () => {
+      active = false
+    }
+  }, [eventId])
+
+  return totals
+}
+
 export function EventTotals({ eventId, className = '', liveTotals }: { eventId: number; className?: string; liveTotals?: Partial<Record<LineItemType, number>> }) {
   const { currentQuotation, loading, error } = useEventQuotation(eventId)
+  const currentTotals = useCurrentEventTotals(eventId)
   const totalsByType = useMemo(() => {
     const totals = new Map<LineItemType, number>(groupLineItems(currentQuotation?.lineItems ?? []))
+    Object.entries(currentTotals).forEach(([type, value]) => totals.set(type as LineItemType, Number(value ?? 0)))
     Object.entries(liveTotals ?? {}).forEach(([type, value]) => totals.set(type as LineItemType, Number(value ?? 0)))
+    Array.from(totals.entries()).forEach(([type, value]) => {
+      if (value === 0) totals.delete(type)
+    })
     return Array.from(totals.entries())
-  }, [currentQuotation, liveTotals])
+  }, [currentQuotation, currentTotals, liveTotals])
   const itemTotal = useMemo(() => totalsByType.reduce((sum, [, value]) => sum + value, 0), [totalsByType])
-  const total = liveTotals ? itemTotal : Number(currentQuotation?.total ?? 0)
+  const hasCurrentTotals = Object.keys(currentTotals).length > 0
+  const total = hasCurrentTotals || liveTotals ? itemTotal : Number(currentQuotation?.total ?? 0)
 
   return (
     <Panel className={className}>
@@ -58,7 +102,7 @@ export function EventTotals({ eventId, className = '', liveTotals }: { eventId: 
       ) : (
         <div className="space-y-4 text-sm">
           {totalsByType.length ? totalsByType.map(([type, value]) => <Total key={type} label={lineItemLabels[type]} value={currency(value)} />) : <p className="text-sm text-slate-600">No billed items from server yet.</p>}
-          <div className="border-t border-[#efb6b0] pt-4"><Total label="Item Total" value={currency(liveTotals ? itemTotal : currentQuotation?.subTotal ?? 0)} /></div>
+          <div className="border-t border-[#efb6b0] pt-4"><Total label="Item Total" value={currency(hasCurrentTotals || liveTotals ? itemTotal : currentQuotation?.subTotal ?? 0)} /></div>
           <div className="border-t border-blue-200 pt-4"><Total label={<span className="text-xl font-bold">Total</span>} value={<span className="text-xl font-bold text-[#cc2622]">{currency(total)}</span>} /></div>
         </div>
       )}

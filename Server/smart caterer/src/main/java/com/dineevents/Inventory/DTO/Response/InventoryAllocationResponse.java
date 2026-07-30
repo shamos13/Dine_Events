@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class InventoryAllocationResponse {
     private Long allocationId;
+    private Long eventId;
     private String inventoryName;
     private String eventName;
     private String clientName;

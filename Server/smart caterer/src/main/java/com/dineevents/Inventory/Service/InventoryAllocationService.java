@@ -40,9 +40,12 @@ public class InventoryAllocationService {
         return inventoryAllocations.stream().map(this::toResponseDTO).toList();
     }
 
-
-
-
+    public List<InventoryAllocationResponse> getInventoryAllocationsByEventId(Long eventId){
+        log.info("Retrieving inventory allocations for EventID {}", eventId);
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new EntityNotFoundException("Event not found: " + eventId));
+        return inventoryAllocationRepository.findByEvent(event).stream().map(this::toResponseDTO).toList();
+    }
 
     //Mappers
     // DTO to Entity (Data from Client)
@@ -102,6 +105,7 @@ public class InventoryAllocationService {
 
         InventoryAllocationResponse dto = new InventoryAllocationResponse();
         dto.setAllocationId(allocation.getAllocationId());
+        dto.setEventId(allocation.getEvent().getEventId());
         dto.setInventoryName(allocation.getInventory().getInventoryName());
         dto.setEventName(allocation.getEvent().getEventName());
         if (allocation.getEvent().getClient() != null){
@@ -117,4 +121,3 @@ public class InventoryAllocationService {
     }
 
 }
-

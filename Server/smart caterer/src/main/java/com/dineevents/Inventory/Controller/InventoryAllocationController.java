@@ -29,4 +29,9 @@ public class InventoryAllocationController {
     public ResponseEntity<List<InventoryAllocationResponse>> getAllInventoryAllocations(){
         return ResponseEntity.status(200).body(inventoryAllocationService.getAllInventoryAllocations());
     }
+
+    @GetMapping("/event/{eventId}")
+    public ResponseEntity<List<InventoryAllocationResponse>> getInventoryAllocationsByEvent(@PathVariable Long eventId){
+        return ResponseEntity.ok(inventoryAllocationService.getInventoryAllocationsByEventId(eventId));
+    }
 }
