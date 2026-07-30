@@ -2,6 +2,7 @@ package com.dineevents.Quotation.Entity;
 
 import com.dineevents.Inventory.Entity.InventoryItemAllocation;
 import com.dineevents.Menu.Entity.MenuItem;
+import com.dineevents.Menu.Entity.MenuPackage;
 import com.dineevents.Quotation.Enum.LineItemType;
 import com.dineevents.staff.Entity.Staff;
 import com.dineevents.staff.Entity.StaffAssignment;
@@ -40,6 +41,11 @@ public class QuotationLineItem {
     @ManyToOne
     @JoinColumn(name = "staff_assignment_id")
     private StaffAssignment assignedStaff;
+
+    @ManyToOne
+    @JoinColumn(name = "menu_package_id")
+    private MenuPackage menuPackage;
+
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
