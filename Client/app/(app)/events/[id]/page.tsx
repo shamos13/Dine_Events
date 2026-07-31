@@ -7,8 +7,11 @@ import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import InvoiceTemplate, { type InvoiceTemplateData } from '@/components/InvoiceTemplate'
+import QuotationTemplate, { type QuotationTemplateData } from '@/components/QuotationTemplate'
 import DraftInvoiceModal from '@/components/DraftInvoiceModal'
+import DraftQuotationModal from '@/components/DraftQuotationModal'
 import SendInvoiceModal from '@/components/SendInvoiceModal'
+import SendQuotationModal from '@/components/SendQuotationModal'
 
 import Billing from '../event-management/Billing'
 import Communication from '../event-management/Communication'
@@ -21,7 +24,7 @@ import Staff from '../event-management/Staff'
 import { toEventRecord, type EventRecord } from '../event-management/event-data'
 import { ApiError } from '@/lib/api/client'
 import { getEvents } from '@/lib/api/events'
-import { getQuotations, type QuotationResponse } from '@/lib/api/quotations'
+import { createQuotation, getQuotations, type QuotationResponse } from '@/lib/api/quotations'
 
 const tabs = ['Details', 'Billing', 'Menu', 'Staff', 'Rentals', 'Notes', 'Files', 'Communication'] as const
 type Tab = (typeof tabs)[number]
@@ -33,12 +36,19 @@ export default function EventDetails() {
   const [currentQuotation, setCurrentQuotation] = useState<QuotationResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [billingActionError, setBillingActionError] = useState<string | null>(null)
+  const [billingActionMessage, setBillingActionMessage] = useState<string | null>(null)
+  const [billingRefreshKey, setBillingRefreshKey] = useState(0)
 
   // Invoice Workflow Modals & Preview state
   const [draftModalOpen, setDraftModalOpen] = useState(false)
+  const [draftQuotationModalOpen, setDraftQuotationModalOpen] = useState(false)
   const [sendModalOpen, setSendModalOpen] = useState(false)
+  const [sendQuotationModalOpen, setSendQuotationModalOpen] = useState(false)
   const [previewInvoiceData, setPreviewInvoiceData] = useState<InvoiceTemplateData | null>(null)
+  const [previewQuotationData, setPreviewQuotationData] = useState<QuotationTemplateData | null>(null)
   const [currentInvoiceData, setCurrentInvoiceData] = useState<InvoiceTemplateData | null>(null)
+  const [currentQuotationData, setCurrentQuotationData] = useState<QuotationTemplateData | null>(null)
 
   useEffect(() => {
     Promise.all([getEvents(), getQuotations().catch(() => [])])
@@ -55,13 +65,34 @@ export default function EventDetails() {
       .finally(() => setLoading(false))
   }, [id])
 
-  const handleGenerateInvoice = () => {
-    setDraftModalOpen(true)
+  const createFreshQuotation = async (overrides?: { quotationName?: string; validUntil?: string }) => {
+    if (!event) return null
+    setBillingActionError(null)
+    setBillingActionMessage(null)
+    try {
+      const quotation = await createQuotation({
+        eventId: event.id,
+        quotationName: overrides?.quotationName || `${event.name} Quotation`,
+        validUntil: overrides?.validUntil,
+      })
+      setCurrentQuotation(quotation)
+      setBillingRefreshKey((key) => key + 1)
+      return quotation
+    } catch (reason) {
+      setBillingActionError(reason instanceof ApiError ? reason.message : 'Unable to refresh event billing totals.')
+      return null
+    }
   }
 
-  const handleGenerateProposal = () => {
-    // Generate proposal action trigger
-    alert('Proposal generation workflow started.')
+  const handleGenerateInvoice = async () => {
+    const quotation = await createFreshQuotation()
+    if (quotation) setDraftModalOpen(true)
+  }
+
+  const handleGenerateProposal = async () => {
+    setBillingActionError(null)
+    setBillingActionMessage(null)
+    setDraftQuotationModalOpen(true)
   }
 
   const handleDraftPreview = (data: InvoiceTemplateData) => {
@@ -73,6 +104,60 @@ export default function EventDetails() {
     setCurrentInvoiceData(data)
     setDraftModalOpen(false)
     setSendModalOpen(true)
+  }
+
+  const handleQuotationPreview = async (data: QuotationTemplateData) => {
+    const quotation = await ensureQuotationCreated(data)
+    if (!quotation) return
+    setPreviewQuotationData({
+      ...data,
+      quotationNumber: quotation.quotationNumber,
+      status: quotation.quotationStatus.replaceAll('_', ' '),
+      lineItems: quotation.lineItems.map((item) => ({
+        id: item.lineItemId,
+        description: item.lineItemDescription,
+        subdescription: item.lineItemType.replaceAll('_', ' '),
+        qty: item.quantity,
+        unitPrice: item.unitPriceAtQuotation,
+        total: item.totalPrice,
+      })),
+      subtotal: Number(quotation.subTotal ?? data.subtotal),
+      total: Number(quotation.total ?? data.total),
+    })
+    setDraftQuotationModalOpen(false)
+  }
+
+  const handleQuotationSend = async (data: QuotationTemplateData) => {
+    const quotation = await ensureQuotationCreated(data)
+    if (!quotation) return
+    setCurrentQuotationData({
+      ...data,
+      quotationNumber: quotation.quotationNumber,
+      total: Number(quotation.total ?? data.total),
+    })
+    setDraftQuotationModalOpen(false)
+    setSendQuotationModalOpen(true)
+  }
+
+  const handleQuotationSaveDraft = async (data: QuotationTemplateData) => {
+    const quotation = await ensureQuotationCreated(data)
+    if (!quotation) return
+    setCurrentQuotationData({
+      ...data,
+      quotationNumber: quotation.quotationNumber,
+      total: Number(quotation.total ?? data.total),
+    })
+    setDraftQuotationModalOpen(false)
+    setActiveTab('Billing')
+    setBillingActionMessage(`Proposal ${quotation.quotationNumber} created and saved as a draft.`)
+  }
+
+  const ensureQuotationCreated = async (data: QuotationTemplateData) => {
+    const validUntil = data.validUntil ? new Date(data.validUntil).toISOString().split('T')[0] : undefined
+    return createFreshQuotation({
+      quotationName: data.quotationName || `${event?.name ?? 'Event'} Quotation`,
+      validUntil,
+    })
   }
 
   if (loading) return <div className="min-h-screen bg-[#f7f8fc]"><Header /><main className="mx-auto w-full max-w-[1440px] px-6 py-12 text-slate-600 lg:px-8">Loading event...</main><Footer /></div>
@@ -109,12 +194,42 @@ export default function EventDetails() {
     )
   }
 
+  if (previewQuotationData) {
+    return (
+      <div className="min-h-screen bg-[#f7f8fc] text-slate-900 flex flex-col">
+        <div className="print:hidden"><Header /></div>
+        <main className="flex-1 mx-auto w-full max-w-[1440px] px-6 py-8 lg:px-8">
+          <button
+            onClick={() => {
+              setPreviewQuotationData(null)
+              setDraftQuotationModalOpen(true)
+            }}
+            className="mb-6 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Draft Quotation Options
+          </button>
+          <QuotationTemplate
+            data={previewQuotationData}
+            previewMode={true}
+            onSendEmail={() => {
+              setCurrentQuotationData(previewQuotationData)
+              setPreviewQuotationData(null)
+              setSendQuotationModalOpen(true)
+            }}
+          />
+        </main>
+        <div className="print:hidden"><Footer /></div>
+      </div>
+    )
+  }
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'Details':
         return <Details event={event} onGenerateInvoice={handleGenerateInvoice} onGenerateProposal={handleGenerateProposal} />
       case 'Billing':
-        return <Billing event={event} onGenerateInvoice={handleGenerateInvoice} onGenerateProposal={handleGenerateProposal} />
+        return <Billing key={`${event.id}-${billingRefreshKey}`} event={event} onGenerateInvoice={handleGenerateInvoice} onGenerateProposal={handleGenerateProposal} />
       case 'Menu':
         return <Menu event={event} onGenerateInvoice={handleGenerateInvoice} onGenerateProposal={handleGenerateProposal} />
       case 'Staff':
@@ -176,6 +291,18 @@ export default function EventDetails() {
           ))}
         </div>
 
+        {billingActionError && (
+          <p role="alert" className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {billingActionError}
+          </p>
+        )}
+
+        {billingActionMessage && (
+          <p role="status" className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+            {billingActionMessage}
+          </p>
+        )}
+
         <div className="mt-8">{renderTabContent()}</div>
       </main>
 
@@ -203,6 +330,33 @@ export default function EventDetails() {
         }}
       />
 
+      <DraftQuotationModal
+        isOpen={draftQuotationModalOpen}
+        onClose={() => setDraftQuotationModalOpen(false)}
+        onPreview={handleQuotationPreview}
+        onSendQuotation={handleQuotationSend}
+        onSaveDraft={handleQuotationSaveDraft}
+        quotationNumber={currentQuotation?.quotationNumber ?? 'Draft'}
+        quotationName={currentQuotation?.quotationName ?? `${event.name} Quotation`}
+        validUntil={currentQuotation?.validUntil}
+        totalEventAmount={Number(currentQuotation?.total ?? 0)}
+        eventData={{
+          eventName: event.name,
+          clientName: currentQuotation?.clientName ?? event.client,
+          clientEmail: currentQuotation?.clientEmail ?? event.email,
+          eventDate: event.date,
+          eventVenue: event.venue,
+          lineItems: currentQuotation?.lineItems.map((item) => ({
+            id: item.lineItemId,
+            description: item.lineItemDescription,
+            subdescription: item.lineItemType.replaceAll('_', ' '),
+            qty: item.quantity,
+            unitPrice: item.unitPriceAtQuotation,
+            total: item.totalPrice,
+          })),
+        }}
+      />
+
       <SendInvoiceModal
         isOpen={sendModalOpen}
         onClose={() => setSendModalOpen(false)}
@@ -211,6 +365,16 @@ export default function EventDetails() {
         clientName={event.client}
         clientEmail={event.email}
         totalAmount={currentInvoiceData?.totalDue ?? Number(currentQuotation?.total ?? 0)}
+      />
+
+      <SendQuotationModal
+        isOpen={sendQuotationModalOpen}
+        onClose={() => setSendQuotationModalOpen(false)}
+        quotationNumber={currentQuotationData?.quotationNumber ?? currentQuotation?.quotationNumber ?? 'Draft'}
+        eventName={event.name}
+        clientName={currentQuotationData?.clientName ?? currentQuotation?.clientName ?? event.client}
+        clientEmail={currentQuotationData?.clientEmail ?? currentQuotation?.clientEmail ?? event.email}
+        totalAmount={currentQuotationData?.total ?? Number(currentQuotation?.total ?? 0)}
       />
 
       <Footer />

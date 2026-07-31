@@ -5,7 +5,8 @@ import { getInvoices, type InvoiceResponse } from '@/lib/api/invoices'
 import { getQuotations, type QuotationResponse } from '@/lib/api/quotations'
 import type { EventRecord } from './event-data'
 import { DataTable, OutlineButton, Panel, SectionHeading } from './components'
-import { currency, EventTotals, lineItemLabels } from './EventTotals'
+import EventSidebarActions from './EventSidebarActions'
+import { currency, lineItemLabels } from './EventTotals'
 
 const proposalStatusStyles: Record<QuotationResponse['quotationStatus'], string> = {
   DRAFT: 'bg-gray-100 text-gray-700',

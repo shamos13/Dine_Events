@@ -9,6 +9,7 @@ import {
   createInventoryAllocation,
   getInventory,
   getInventoryAllocations,
+  getInventoryAllocationsByEvent,
   type InventoryAllocationResponse,
   type InventoryRequest,
   type InventoryResponse,
@@ -42,15 +43,16 @@ export default function Rentals({
   const loadAllocations = () => {
     setLoading(true)
     setError(null)
-    return getInventoryAllocations()
-      .then((items) => setAllocations(items.filter((item) => item.eventName === event.name)))
+    return getInventoryAllocationsByEvent(event.id)
+      .then(setAllocations)
+      .catch(() => getInventoryAllocations().then((items) => setAllocations(items.filter((item) => item.eventId === event.id || item.eventName === event.name))))
       .catch((reason: unknown) => setError(reason instanceof ApiError ? reason.message : 'Unable to load rental items.'))
       .finally(() => setLoading(false))
   }
 
   useEffect(() => {
     void loadAllocations()
-  }, [event.name])
+  }, [event.id, event.name])
 
   const subtotal = allocations.reduce((total, item) => total + Number(item.totalCost ?? 0), 0)
 

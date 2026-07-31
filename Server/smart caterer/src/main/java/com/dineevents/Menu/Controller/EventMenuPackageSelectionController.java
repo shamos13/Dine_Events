@@ -29,4 +29,10 @@ public class EventMenuPackageSelectionController {
             @PathVariable Long eventId) {
         return ResponseEntity.ok(selectionService.getSelectionsForEvent(eventId));
     }
+
+    @DeleteMapping("/{selectionId}")
+    public ResponseEntity<Void> removeSelection(@PathVariable Long selectionId) {
+        selectionService.removeSelection(selectionId);
+        return ResponseEntity.noContent().build();
+    }
 }
