@@ -3,18 +3,19 @@
 import AuthFrame from '@/components/AuthFrame'
 import { ApiError } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth-context'
-import { Building2, Eye, EyeOff, Lock, Mail, UserRound } from 'lucide-react'
+import { Building2, Eye, EyeOff, Lock, Mail, Phone, UserRound } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 
 export default function Signup() {
-  const { register } = useAuth()
+  const { register, user, isLoading } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     fullName: '',
-    businessName: '',
+    companyName: '',
+    phone: '',
     email: '',
     password: '',
   })
@@ -32,7 +33,13 @@ export default function Signup() {
     setError(null)
     setIsSubmitting(true)
     try {
-      await register(formData)
+      await register({
+        fullName: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone,
+        companyName: formData.companyName || undefined,
+      })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Unable to create account. Please try again.')
     } finally {
@@ -40,10 +47,35 @@ export default function Signup() {
     }
   }
 
+  // Submitting this form replaces whatever session is active, so an admin who lands
+  // here to onboard a customer would be signed out into that customer's portal.
+  if (!isLoading && user?.role === 'ADMIN') {
+    return (
+      <AuthFrame
+        title="You're signed in as an operator"
+        subtitle="This form creates a new client account and would sign you out of your admin session."
+      >
+        <div className="space-y-4">
+          <p className="text-base text-gray-600">
+            To onboard a customer, use <span className="font-semibold text-gray-900">Add Client</span> on the Clients
+            page. That keeps you signed in, and the customer can later register here with the same email to claim their
+            portal access.
+          </p>
+          <Link
+            href="/crm"
+            className="flex h-12 w-full items-center justify-center rounded-lg bg-brand text-sm font-bold uppercase tracking-wide text-white transition hover:bg-brand-dark"
+          >
+            Go to Clients
+          </Link>
+        </div>
+      </AuthFrame>
+    )
+  }
+
   return (
     <AuthFrame
-      title="Create an account"
-      subtitle="Join Dine Events to streamline event planning, billing, staffing, and service."
+      title="Create your client account"
+      subtitle="Plan events, review quotations, and pay invoices with M-Pesa — all in one portal."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -56,28 +88,51 @@ export default function Signup() {
               id="fullName"
               type="text"
               name="fullName"
+              autoComplete="name"
+              required
               value={formData.fullName}
               onChange={handleChange}
-              placeholder="Jane Doe"
-              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-[#CC2622] focus:bg-white focus:ring-2 focus:ring-[#CC2622]/15"
+              placeholder="Sarah Jenkins"
+              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/15"
             />
           </div>
         </div>
 
         <div>
-          <label htmlFor="businessName" className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-900">
-            Business name
+          <label htmlFor="phone" className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-900">
+            Phone (M-Pesa)
+          </label>
+          <div className="relative">
+            <Phone className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              id="phone"
+              type="tel"
+              name="phone"
+              autoComplete="tel"
+              required
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="07XXXXXXXX"
+              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/15"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="companyName" className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-900">
+            Company / organization <span className="font-normal normal-case text-gray-400">(optional)</span>
           </label>
           <div className="relative">
             <Building2 className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
-              id="businessName"
+              id="companyName"
               type="text"
-              name="businessName"
-              value={formData.businessName}
+              name="companyName"
+              autoComplete="organization"
+              value={formData.companyName}
               onChange={handleChange}
-              placeholder="Jane's Events LLC"
-              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-[#CC2622] focus:bg-white focus:ring-2 focus:ring-[#CC2622]/15"
+              placeholder="Jenkins Family"
+              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/15"
             />
           </div>
         </div>
@@ -92,10 +147,12 @@ export default function Signup() {
               id="email"
               type="email"
               name="email"
+              autoComplete="email"
+              required
               value={formData.email}
               onChange={handleChange}
-              placeholder="jane@example.com"
-              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-[#CC2622] focus:bg-white focus:ring-2 focus:ring-[#CC2622]/15"
+              placeholder="sarah@example.com"
+              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/15"
             />
           </div>
         </div>
@@ -110,10 +167,13 @@ export default function Signup() {
               id="password"
               type={showPassword ? 'text' : 'password'}
               name="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
               value={formData.password}
               onChange={handleChange}
               placeholder="••••••••"
-              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 pr-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-[#CC2622] focus:bg-white focus:ring-2 focus:ring-[#CC2622]/15"
+              className="h-12 w-full rounded-lg border border-gray-200 bg-[#F7F8FC] px-4 pl-12 pr-12 text-base text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/15"
             />
             <button
               type="button"
@@ -136,7 +196,7 @@ export default function Signup() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="h-12 w-full rounded-lg bg-[#CC2622] text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#A01F1A] focus:outline-none focus:ring-2 focus:ring-[#CC2622]/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-12 w-full rounded-lg bg-brand text-sm font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-brand/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? 'Creating account…' : 'Create account'}
         </button>
@@ -150,9 +210,16 @@ export default function Signup() {
 
       <p className="text-center text-base text-gray-600">
         Already have an account?{' '}
-        <Link href="/login" className="font-semibold text-[#CC2622] transition hover:text-[#A01F1A]">
+        <Link href="/login" className="font-semibold text-brand transition hover:text-brand-dark">
           Sign in
         </Link>
+      </p>
+      <p className="mt-3 text-center text-xs text-gray-500">
+        Staff / operators: ask an admin to create your account, then{' '}
+        <Link href="/login" className="font-semibold text-brand">
+          sign in
+        </Link>
+        .
       </p>
     </AuthFrame>
   )

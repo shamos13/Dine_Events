@@ -24,7 +24,7 @@ import Staff from '../event-management/Staff'
 import { toEventRecord, type EventRecord } from '../event-management/event-data'
 import { ApiError } from '@/lib/api/client'
 import { getEvents } from '@/lib/api/events'
-import { createQuotation, getQuotations, type QuotationResponse } from '@/lib/api/quotations'
+import { createQuotation, getQuotations, sendQuotation, type QuotationResponse } from '@/lib/api/quotations'
 
 const tabs = ['Details', 'Billing', 'Menu', 'Staff', 'Rentals', 'Notes', 'Files', 'Communication'] as const
 type Tab = (typeof tabs)[number]
@@ -67,6 +67,10 @@ export default function EventDetails() {
 
   const createFreshQuotation = async (overrides?: { quotationName?: string; validUntil?: string }) => {
     if (!event) return null
+    if (event.status === 'CANCELLED') {
+      setBillingActionError('Cannot create proposals for a cancelled event.')
+      return null
+    }
     setBillingActionError(null)
     setBillingActionMessage(null)
     try {
@@ -77,6 +81,9 @@ export default function EventDetails() {
       })
       setCurrentQuotation(quotation)
       setBillingRefreshKey((key) => key + 1)
+      setBillingActionMessage(
+        `Proposal ${quotation.quotationNumber} saved as a draft. Send it to the client when ready.`
+      )
       return quotation
     } catch (reason) {
       setBillingActionError(reason instanceof ApiError ? reason.message : 'Unable to refresh event billing totals.')
@@ -85,11 +92,16 @@ export default function EventDetails() {
   }
 
   const handleGenerateInvoice = async () => {
-    const quotation = await createFreshQuotation()
-    if (quotation) setDraftModalOpen(true)
+    setBillingActionError(
+      'Invoices are created when the client accepts a sent proposal. Generate and send a proposal first.'
+    )
   }
 
   const handleGenerateProposal = async () => {
+    if (event?.status === 'CANCELLED') {
+      setBillingActionError('Cannot create proposals for a cancelled event.')
+      return
+    }
     setBillingActionError(null)
     setBillingActionMessage(null)
     setDraftQuotationModalOpen(true)
@@ -370,6 +382,16 @@ export default function EventDetails() {
       <SendQuotationModal
         isOpen={sendQuotationModalOpen}
         onClose={() => setSendQuotationModalOpen(false)}
+        onSend={async () => {
+          const quotationId = currentQuotation?.quotationId
+          if (!quotationId) throw new Error('No quotation to send. Save a draft first.')
+          const sent = await sendQuotation(quotationId)
+          setCurrentQuotation(sent)
+          setBillingRefreshKey((key) => key + 1)
+          setBillingActionMessage(
+            `Proposal ${sent.quotationNumber} sent — the client can now accept it in their portal.`
+          )
+        }}
         quotationNumber={currentQuotationData?.quotationNumber ?? currentQuotation?.quotationNumber ?? 'Draft'}
         eventName={event.name}
         clientName={currentQuotationData?.clientName ?? currentQuotation?.clientName ?? event.client}
