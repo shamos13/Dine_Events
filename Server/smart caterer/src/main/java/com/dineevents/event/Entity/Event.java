@@ -3,7 +3,6 @@ package com.dineevents.event.Entity;
 import com.dineevents.Inventory.Entity.InventoryItemAllocation;
 import com.dineevents.client.Entity.Client;
 import com.dineevents.event.Enums.EventStatus;
-import com.dineevents.staff.DTO.Response.StaffAssignmentSummary;
 import com.dineevents.staff.Entity.StaffAssignment;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -29,6 +28,9 @@ public class Event {
     private String eventVenue;
     private String eventLocation;
 
+    @Column(length = 2000)
+    private String specialRequests;
+
     @Enumerated(EnumType.STRING)
     private EventStatus eventStatus;
 
@@ -36,15 +38,23 @@ public class Event {
     private OffsetDateTime eventDateTime;
     private OffsetDateTime eventEndDateTime;
 
-    // Relationship with the Client (Many to One)
+    @Column(updatable = false)
+    private OffsetDateTime createdAt;
+
     @ManyToOne
     @JoinColumn(name = "client_id")
     private Client client;
 
-    // Relationship with the InventoryAllocation (One to Many)
     @OneToMany(mappedBy = "event")
     private List<InventoryItemAllocation> inventoryItemAllocations;
 
     @OneToMany(mappedBy = "event")
     private List<StaffAssignment> staffs;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = OffsetDateTime.now();
+        }
+    }
 }

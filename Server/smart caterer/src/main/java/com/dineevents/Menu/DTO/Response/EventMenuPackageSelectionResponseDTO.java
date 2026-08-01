@@ -3,6 +3,7 @@ package com.dineevents.Menu.DTO.Response;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class EventMenuPackageSelectionResponseDTO {
@@ -15,5 +16,6 @@ public class EventMenuPackageSelectionResponseDTO {
     private Integer minGuests;
     private Integer guestCount;
     private BigDecimal pricePerPax;
-    private java.util.List<String> menuItemNames;
+    private List<String> menuItemNames;
+    private List<MenuItemSummaryDTO> menuItems;
 }

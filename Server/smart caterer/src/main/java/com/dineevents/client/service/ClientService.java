@@ -46,6 +46,7 @@ public class ClientService {
         client.setClientEmail(dto.getClientEmail());
         client.setClientPhone(dto.getClientPhone());
         client.setCompanyName(dto.getCompanyName());
+        client.setProfileImageUrl(blankToNull(dto.getProfileImageUrl()));
         return client;
     }
 
@@ -57,6 +58,7 @@ public class ClientService {
         clientResponseDTO.setClientEmail(client.getClientEmail());
         clientResponseDTO.setClientPhone(client.getClientPhone());
         clientResponseDTO.setCompanyName(client.getCompanyName());
+        clientResponseDTO.setProfileImageUrl(client.getProfileImageUrl());
 
         // Get the number of events for this client
         if (client.getEvents() != null){
@@ -73,5 +75,12 @@ public class ClientService {
             clientResponseDTO.setEvents(events);
         }
         return clientResponseDTO;
+    }
+
+    private String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 }
