@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Getter
@@ -25,8 +26,18 @@ public class Client {
     private String clientPhone;
 
     private String companyName;
+    private String profileImageUrl;
 
-    // Relationship with the client
+    @Column(updatable = false)
+    private OffsetDateTime createdAt;
+
     @OneToMany(mappedBy = "client")
     private List<Event> events;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = OffsetDateTime.now();
+        }
+    }
 }
