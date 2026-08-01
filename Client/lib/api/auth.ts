@@ -1,12 +1,16 @@
 import { apiClient } from './client'
 
+export type UserRole = 'ADMIN' | 'CLIENT'
+
 export type AuthResponse = {
   token: string
   refreshToken?: string
   email: string
   fullName: string
   businessName: string | null
-  role: 'ADMIN'
+  role: UserRole
+  clientId?: number | null
+  profileImageUrl?: string | null
 }
 
 export type LoginRequest = {
@@ -16,9 +20,10 @@ export type LoginRequest = {
 
 export type RegisterRequest = {
   fullName: string
-  businessName?: string
   email: string
   password: string
+  phone: string
+  companyName?: string
 }
 
 export const login = (payload: LoginRequest) =>

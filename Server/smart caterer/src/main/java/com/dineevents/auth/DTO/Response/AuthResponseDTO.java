@@ -10,6 +10,7 @@ public class AuthResponseDTO {
     private String email;
     private String fullName;
     private String businessName;
-
     private Role role;
+    private Long clientId;
+    private String profileImageUrl;
 }

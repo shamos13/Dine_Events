@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { CalendarDays, ChefHat, ClipboardCheck, Utensils } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ChefHat, ClipboardCheck, Utensils } from 'lucide-react'
 
 type AuthFrameProps = {
   title: string
@@ -15,8 +15,22 @@ export default function AuthFrame({ title, subtitle, children }: AuthFrameProps)
     <div className="flex min-h-screen flex-col bg-[#F6F7FB] text-gray-900">
       <main className="flex flex-1 items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
         <section className="w-full max-w-[480px]" aria-labelledby="auth-heading">
+          <div className="mb-4 flex justify-start">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-[#CC2622]"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Back to home
+            </Link>
+          </div>
+
           <div className="mb-6 flex justify-center">
-            <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm">
+            <Link
+              href="/"
+              aria-label="Dine Events home"
+              className="flex h-[88px] w-[88px] items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
+            >
               <Image
                 src="/dine-events-logo.png"
                 alt="Dine Events"
@@ -25,7 +39,7 @@ export default function AuthFrame({ title, subtitle, children }: AuthFrameProps)
                 priority
                 className="h-auto w-[72px] object-contain"
               />
-            </div>
+            </Link>
           </div>
 
           <div className="mb-7 text-center">
