@@ -7,6 +7,7 @@ import com.dineevents.Inventory.Entity.InventoryItemAllocation;
 import com.dineevents.Inventory.Repository.InventoryAllocationRepository;
 import com.dineevents.Inventory.Repository.InventoryRepository;
 import com.dineevents.event.Entity.Event;
+import com.dineevents.event.Enums.EventStatus;
 import com.dineevents.event.Repository.EventRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -59,6 +60,10 @@ public class InventoryAllocationService {
         //Getting the event from the db
         Event event = eventRepository.findById(dto.getEventId())
                 .orElseThrow(() -> new EntityNotFoundException("Event not found: " + dto.getEventId()));
+
+        if (event.getEventStatus() == EventStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot allocate inventory for a cancelled event");
+        }
 
         InventoryItemAllocation allocation = new InventoryItemAllocation();
         allocation.setInventory(inventory);
