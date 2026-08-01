@@ -55,6 +55,7 @@ export default function Rentals({
   }, [event.id, event.name])
 
   const subtotal = allocations.reduce((total, item) => total + Number(item.totalCost ?? 0), 0)
+  const cancelled = event.status === 'CANCELLED'
 
   return (
     <>
@@ -63,11 +64,20 @@ export default function Rentals({
           <Panel className="p-0">
             <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
               <SectionHeading title="Rental Items" subtitle="Equipment and inventory allocated to this event" />
-              <button onClick={() => setDrawerOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-md bg-[#cc2622] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#a01f1a]">
-                <Plus className="h-5 w-5" />
-                Add Rental Item
-              </button>
+              {!cancelled && (
+                <button onClick={() => setDrawerOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-md bg-[#cc2622] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#a01f1a]">
+                  <Plus className="h-5 w-5" />
+                  Add Rental Item
+                </button>
+              )}
             </div>
+            {cancelled && (
+              <div className="px-6 pb-2">
+                <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  This event is cancelled. Rental items cannot be added.
+                </p>
+              </div>
+            )}
 
             {loading ? (
               <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" />Loading rental items...</div>
@@ -138,10 +148,10 @@ export default function Rentals({
           </Panel>
         </div>
 
-        <EventSidebarActions eventId={event.id} liveTotals={{ RENTAL: subtotal }} onGenerateInvoice={onGenerateInvoice} onGenerateProposal={onGenerateProposal} />
+        <EventSidebarActions eventId={event.id} eventStatus={event.status} liveTotals={{ RENTAL: subtotal }} onGenerateInvoice={onGenerateInvoice} onGenerateProposal={onGenerateProposal} />
       </div>
 
-      {drawerOpen && <AddRentalDrawer eventId={event.id} allocatedInventoryNames={allocations.map((allocation) => allocation.inventoryName)} onClose={() => setDrawerOpen(false)} onAllocated={loadAllocations} />}
+      {drawerOpen && !cancelled && <AddRentalDrawer eventId={event.id} allocatedInventoryNames={allocations.map((allocation) => allocation.inventoryName)} onClose={() => setDrawerOpen(false)} onAllocated={loadAllocations} />}
     </>
   )
 }

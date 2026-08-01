@@ -9,4 +9,6 @@ export type QuotationRequest = { eventId: number; quotationName?: string; validU
 
 export const getQuotations = () => apiClient<QuotationResponse[]>('/quotation/all-quotations')
 export const createQuotation = (payload: QuotationRequest) => apiClient<QuotationResponse>('/quotation/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+export const sendQuotation = (quotationId: number) =>
+  apiClient<QuotationResponse>(`/quotation/${quotationId}/send`, { method: 'PATCH' })
 export const approveQuotation = (quotationId: number) => apiClient<InvoiceResponse>(`/quotation/${quotationId}/approve`, { method: 'PATCH' })

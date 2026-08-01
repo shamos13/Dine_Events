@@ -18,6 +18,7 @@ import com.dineevents.Quotation.Enum.LineItemType;
 import com.dineevents.Quotation.Enum.QuotationStatus;
 import com.dineevents.Quotation.Repository.QuotationRepository;
 import com.dineevents.event.Entity.Event;
+import com.dineevents.event.Enums.EventStatus;
 import com.dineevents.event.Repository.EventRepository;
 import com.dineevents.staff.Entity.StaffAssignment;
 import com.dineevents.staff.Repository.StaffAssignmentRepository;
@@ -49,6 +50,10 @@ public class QuotationService {
     public QuotationResponseDTO createQuotation(QuotationRequestDTO dto){
         Event event = eventRepository.findById(dto.getEventId())
                 .orElseThrow(() -> new EntityNotFoundException("Event not found: " + dto.getEventId()));
+
+        if (event.getEventStatus() == EventStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot create a quotation for a cancelled event");
+        }
 
         Quotation quotation = new Quotation();
         quotation.setQuotationNumber(generateQuotationNumber());
@@ -136,8 +141,40 @@ public class QuotationService {
         quotation.setTotal(subtotal);
 
         Quotation savedQuotation = quotationRepository.save(quotation);
+        log.info("Created draft quotation {} for event {}", savedQuotation.getQuotationId(), event.getEventId());
         return toResponseDTO(savedQuotation);
+    }
 
+    public QuotationResponseDTO sendQuotation(Long quotationId) {
+        Quotation quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new EntityNotFoundException("Quotation not found: " + quotationId));
+
+        if (quotation.getQuotationStatus() != QuotationStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "Only draft quotations can be sent (current status: " + quotation.getQuotationStatus() + ")");
+        }
+
+        quotation.setQuotationStatus(QuotationStatus.SENT);
+        Quotation saved = quotationRepository.save(quotation);
+        log.info("Quotation {} sent to client for event {}", quotationId, saved.getEvent().getEventId());
+        return toResponseDTO(saved);
+    }
+
+    /**
+     * Client-portal acceptance: only SENT quotations can be accepted by the client.
+     * Admin override still uses {@link #approveQuotation(Long)}.
+     */
+    public InvoiceResponseDTO acceptSentQuotation(Long quotationId) {
+        Quotation quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new EntityNotFoundException("Quotation not found: " + quotationId));
+
+        if (quotation.getQuotationStatus() != QuotationStatus.SENT) {
+            throw new IllegalStateException(
+                    "Only sent quotations can be accepted by the client (current status: "
+                            + quotation.getQuotationStatus() + ")");
+        }
+
+        return approveQuotation(quotationId);
     }
 
     // Get all quotations
@@ -145,6 +182,28 @@ public class QuotationService {
         log.info("Retrieving all quotations");
         List<Quotation> quotations = quotationRepository.findAll();
         return quotations.stream().map(this::toResponseDTO).toList();
+    }
+
+    public List<QuotationResponseDTO> getQuotationsByEventId(Long eventId) {
+        return quotationRepository.findByEvent_EventId(eventId).stream().map(this::toResponseDTO).toList();
+    }
+
+    public QuotationResponseDTO getQuotationById(Long quotationId) {
+        Quotation quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new EntityNotFoundException("Quotation not found: " + quotationId));
+        return toResponseDTO(quotation);
+    }
+
+    public QuotationResponseDTO declineQuotation(Long quotationId) {
+        Quotation quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new EntityNotFoundException("Quotation not found: " + quotationId));
+        if (quotation.getQuotationStatus() != QuotationStatus.DRAFT
+                && quotation.getQuotationStatus() != QuotationStatus.SENT) {
+            throw new IllegalStateException(
+                    "Cannot decline quotation in status " + quotation.getQuotationStatus());
+        }
+        quotation.setQuotationStatus(QuotationStatus.REJECTED);
+        return toResponseDTO(quotationRepository.save(quotation));
     }
 
     // Approve Quotation
@@ -190,7 +249,7 @@ public class QuotationService {
     }
 
     //To Respsonse DTO
-    private QuotationResponseDTO toResponseDTO(Quotation quotation){
+    public QuotationResponseDTO toResponseDTO(Quotation quotation){
         QuotationResponseDTO dto = new QuotationResponseDTO();
         dto.setQuotationId(quotation.getQuotationId());
         dto.setQuotationNumber(quotation.getQuotationNumber());
