@@ -1,5 +1,6 @@
 package com.dineevents.staff.DTO.Request;
 
+import com.dineevents.staff.Enum.StaffPricingMethod;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -15,10 +16,10 @@ import java.util.List;
 @AllArgsConstructor
 public class StaffRequestDTO {
 
-    @NotBlank (message = "Name is required")
+    @NotBlank(message = "Name is required")
     private String staffName;
 
-    @Email  //Can be Blank
+    @Email
     private String staffEmail;
 
     @NotBlank(message = "Phone Number is required")
@@ -26,10 +27,13 @@ public class StaffRequestDTO {
 
     @NotBlank
     private String staffRole;
+
     @NotNull
     private BigDecimal staffSalary;
 
+    private StaffPricingMethod pricingMethod;
+
+    private String profileImageUrl;
+
     private List<String> responsibilities;
-
-
 }
