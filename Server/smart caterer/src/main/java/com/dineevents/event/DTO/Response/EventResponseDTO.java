@@ -13,8 +13,10 @@ public class EventResponseDTO {
     private EventStatus eventStatus;
     private String eventVenue;
     private String eventLocation;
+    private String specialRequests;
     private OffsetDateTime eventDateTime;
     private OffsetDateTime eventEndDateTime;
+    private OffsetDateTime createdAt;
     private String clientName;
     private String clientPhone;
     private String clientEmail;
