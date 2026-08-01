@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: smart caterer
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+app:
+  cors:
+    allowed-origins: http://localhost:3000
+  jwt:
+    secret: dGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQ=
+    expiration-ms: 3600000
+    refresh-expiration-ms: 604800000
+  bootstrap:
+    admin:
+      email: admin@dineevents.ke
+      password: AdminPass123!
+      full-name: System Admin
+  mpesa:
+    enabled: false
+    base-url: https://sandbox.safaricom.co.ke
+    consumer-key: test-key
+    consumer-secret: test-secret
+    shortcode: "174379"
+    passkey: test-passkey
+    callback-url: http://localhost:8080/api/v1/payments/mpesa/callback
+    transaction-type: CustomerPayBillOnline
+    reconcile-delay-ms: 3600000
+    # Follow-up scheduler is idle in tests because MpesaService.isEnabled is mocked false
