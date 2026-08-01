@@ -6,6 +6,7 @@ import { AtSign, FileText, ReceiptText, Send, X } from 'lucide-react'
 export interface SendQuotationModalProps {
   isOpen: boolean
   onClose: () => void
+  onSend: () => Promise<void>
   onSendSuccess?: () => void
   quotationNumber?: string
   eventName?: string
@@ -18,6 +19,7 @@ export interface SendQuotationModalProps {
 export default function SendQuotationModal({
   isOpen,
   onClose,
+  onSend,
   onSendSuccess,
   quotationNumber = 'QT-2026-005',
   eventName = 'Luxury Gala: Night of Stars',
@@ -30,26 +32,37 @@ export default function SendQuotationModal({
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [sentSuccess, setSentSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isOpen) setRecipientEmail(clientEmail)
+    if (isOpen) {
+      setRecipientEmail(clientEmail)
+      setMessage('')
+      setSending(false)
+      setSentSuccess(false)
+      setError(null)
+    }
   }, [clientEmail, isOpen])
 
   if (!isOpen) return null
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
     setSending(true)
-
-    setTimeout(() => {
-      setSending(false)
+    setError(null)
+    try {
+      await onSend()
       setSentSuccess(true)
       setTimeout(() => {
         setSentSuccess(false)
         onSendSuccess?.()
         onClose()
       }, 1200)
-    }, 800)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to send quotation.')
+    } finally {
+      setSending(false)
+    }
   }
 
   const formatCurrency = (val: number) => `KSh ${Number(val).toLocaleString('en-US')}`
@@ -78,19 +91,25 @@ export default function SendQuotationModal({
           </button>
         </div>
 
-        <form onSubmit={handleSend} className="space-y-5 p-6">
+        <form onSubmit={(e) => void handleSend(e)} className="space-y-5 p-6">
           {sentSuccess ? (
             <div className="space-y-3 py-8 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                 <Send className="h-7 w-7" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Quotation Sent Successfully!</h3>
+              <h3 className="text-lg font-bold text-slate-900">Proposal Sent Successfully!</h3>
               <p className="text-sm text-slate-500">
-                An email with PDF attachment has been dispatched to <span className="font-semibold text-slate-700">{recipientEmail}</span>.
+                The quotation is now visible to <span className="font-semibold text-slate-700">{recipientEmail}</span> in their portal for acceptance.
               </p>
             </div>
           ) : (
             <>
+              {error && (
+                <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {error}
+                </p>
+              )}
+
               <div>
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-600">
                   Recipient Email
@@ -123,7 +142,7 @@ export default function SendQuotationModal({
               <div className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50/60 p-4 text-xs text-slate-700">
                 <FileText className="mt-0.5 h-5 w-5 shrink-0 text-[#CC2622]" />
                 <p className="leading-relaxed">
-                  A professional PDF of <span className="font-bold text-slate-900">{quotationNumber}</span> will be automatically generated and attached to this email.
+                  Sending marks <span className="font-bold text-slate-900">{quotationNumber}</span> as SENT so the client can review and accept it in their portal.
                 </p>
               </div>
 
@@ -155,7 +174,7 @@ export default function SendQuotationModal({
                   disabled={sending}
                   className="inline-flex items-center gap-2 rounded-xl bg-[#CC2622] px-6 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#a01f1a] disabled:opacity-50"
                 >
-                  {sending ? 'Sending...' : 'Send Email'}
+                  {sending ? 'Sending...' : 'Send to Client'}
                   <Send className="h-3.5 w-3.5" />
                 </button>
               </div>
