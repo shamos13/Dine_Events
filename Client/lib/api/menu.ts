@@ -66,6 +66,13 @@ export const createMenuCategory = (payload: MenuCategoryRequest) =>
     body: JSON.stringify(payload),
   })
 
+export type MenuItemSummary = {
+  menuItemId: number
+  menuItemName: string
+  menuImageUrl: string | null
+  menuCategoryName: string | null
+}
+
 export type EventMenuPackageSelectionResponse = {
   selectionId: number
   menuPackageId: number
@@ -77,6 +84,7 @@ export type EventMenuPackageSelectionResponse = {
   guestCount: number
   pricePerPax: number
   menuItemNames: string[] | null
+  menuItems: MenuItemSummary[] | null
 }
 
 export type EventMenuPackageSelectionRequest = {

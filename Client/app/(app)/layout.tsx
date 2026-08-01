@@ -1,9 +1,9 @@
 'use client'
 
-import { useRequireAuth } from '@/lib/require-auth'
+import { useRequireRole } from '@/lib/require-auth'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { isLoading, user } = useRequireAuth()
+  const { isLoading, user } = useRequireRole('ADMIN')
 
   if (isLoading || !user) {
     return null

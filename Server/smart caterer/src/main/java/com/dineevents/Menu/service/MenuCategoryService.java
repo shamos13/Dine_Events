@@ -13,11 +13,14 @@ public class MenuCategoryService {
 
     private final MenuCategoryRepository menuCategoryRepository;
 
-    //Create a new menu category
     public MenuCategoryResponseDto createMenuCategory(MenuCategoryRequestDto menuCategoryRequestDto) {
         MenuCategory menuCategory = toEntity(menuCategoryRequestDto);
         MenuCategory savedMenuCategory = menuCategoryRepository.save(menuCategory);
         return toResponseDto(savedMenuCategory);
+    }
+
+    public java.util.List<MenuCategoryResponseDto> getAllCategories() {
+        return menuCategoryRepository.findAll().stream().map(this::toResponseDto).toList();
     }
 
 

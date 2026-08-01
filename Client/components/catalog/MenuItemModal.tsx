@@ -2,6 +2,7 @@
 
 import { Check, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import ImageUpload from '@/components/ui/ImageUpload'
 import { ApiError } from '@/lib/api/client'
 import {
   createMenuCategory,
@@ -91,9 +92,10 @@ export default function MenuItemModal({
 
     try {
       const menuCategoryId = await resolveCategoryId(form.categoryName)
-      const payload: MenuItemRequest = { menuItemName }
-      const imageUrl = form.menuImageUrl.trim()
-      if (imageUrl) payload.menuImageUrl = imageUrl
+      const payload: MenuItemRequest = {
+        menuItemName,
+        menuImageUrl: form.menuImageUrl.trim() || undefined,
+      }
       if (menuCategoryId) payload.menuCategoryId = menuCategoryId
 
       if (isEdit && item) {
@@ -194,19 +196,25 @@ export default function MenuItemModal({
               </p>
             </div>
 
+            <ImageUpload
+              value={form.menuImageUrl || null}
+              onChange={(url) => setForm((current) => ({ ...current, menuImageUrl: url ?? '' }))}
+              folder="menu"
+              label="Menu image"
+              helperText="Upload a dish photo for the catalog and event menu tables."
+            />
             <div>
               <label htmlFor="menu-image-url" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#8B4513]">
-                Image URL
+                Or paste image URL
               </label>
               <input
                 id="menu-image-url"
                 type="url"
                 value={form.menuImageUrl}
                 onChange={(event) => setForm((current) => ({ ...current, menuImageUrl: event.target.value }))}
-                placeholder="https://example.com/image.jpg"
+                placeholder="https://res.cloudinary.com/..."
                 className="form-input"
               />
-              <p className="mt-1.5 text-xs text-gray-500">Optional image URL for this menu item.</p>
             </div>
           </div>
         </div>
