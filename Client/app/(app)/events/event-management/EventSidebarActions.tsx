@@ -15,6 +15,7 @@ interface EventSidebarActionsProps {
   onCreateReport?: () => void
   className?: string
   liveTotals?: Partial<Record<LineItemType, number>>
+  discountPercent?: number
 }
 
 export default function EventSidebarActions({
@@ -25,12 +26,13 @@ export default function EventSidebarActions({
   onCreateReport,
   className = '',
   liveTotals,
+  discountPercent = 0,
 }: EventSidebarActionsProps) {
   const cancelled = eventStatus === 'CANCELLED'
 
   return (
     <aside className={`space-y-6 ${className}`}>
-      <EventTotals eventId={eventId} liveTotals={liveTotals} />
+      <EventTotals eventId={eventId} liveTotals={liveTotals} discountPercent={discountPercent} />
       {cancelled ? (
         <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           This event is cancelled. New proposals and invoices cannot be created.

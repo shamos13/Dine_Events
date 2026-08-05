@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Slf4j
@@ -71,6 +72,27 @@ public class EventService {
         return toResponseDTO(saved);
     }
 
+    @Transactional
+    public EventResponseDTO updateEventDiscount(Long eventId, BigDecimal discountPercent, String discountReason) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new EntityNotFoundException("Event not found: " + eventId));
+
+        if (event.getEventStatus() == EventStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot update discount for a cancelled event");
+        }
+
+        BigDecimal percent = discountPercent == null ? BigDecimal.ZERO : discountPercent;
+        if (percent.compareTo(BigDecimal.ZERO) < 0 || percent.compareTo(new BigDecimal("100")) > 0) {
+            throw new IllegalArgumentException("Discount percent must be between 0 and 100");
+        }
+
+        event.setDiscountPercent(percent);
+        event.setDiscountReason(discountReason == null || discountReason.isBlank() ? null : discountReason.trim());
+        Event saved = eventRepository.save(event);
+        log.info("Updated discount for event {} to {}%", eventId, percent);
+        return toResponseDTO(saved);
+    }
+
     /**
      * Confirms an event when its invoice is fully paid. No-ops if the event is already
      * confirmed, completed, or cancelled. Enforces the one-confirmed-event-per-day policy.
@@ -124,6 +146,8 @@ public class EventService {
         dto.setEventVenue(event.getEventVenue());
         dto.setEventLocation(event.getEventLocation());
         dto.setSpecialRequests(event.getSpecialRequests());
+        dto.setDiscountPercent(event.getDiscountPercent() == null ? java.math.BigDecimal.ZERO : event.getDiscountPercent());
+        dto.setDiscountReason(event.getDiscountReason());
         dto.setEventDateTime(event.getEventDateTime());
         dto.setEventEndDateTime(event.getEventEndDateTime());
         dto.setCreatedAt(event.getCreatedAt());

@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, ChevronDown, LogOut, Package, UserRound, UtensilsCrossed } from 'lucide-react'
+import { Archive, Bell, ChevronDown, LogOut, Package, UserRound, UtensilsCrossed } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -50,6 +50,13 @@ const catalogLinks = [
     description: 'Roles, photos, and pricing',
     icon: UserRound,
     match: (pathname: string) => pathname.startsWith('/catalog/staff'),
+  },
+  {
+    href: '/catalog/inventory',
+    label: 'Inventory',
+    description: 'Equipment stock and rentals',
+    icon: Archive,
+    match: (pathname: string) => pathname.startsWith('/catalog/inventory'),
   },
 ]
 
@@ -168,7 +175,7 @@ export default function Header() {
                 <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
                   <div className="border-b border-gray-100 bg-gray-50 px-4 py-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-[#CC2622]">Catalog</p>
-                    <p className="mt-0.5 text-xs text-gray-500">Manage your menu offerings</p>
+                    <p className="mt-0.5 text-xs text-gray-500">Packages, menu, staff, and inventory</p>
                   </div>
                   <div className="p-2">
                     {catalogLinks.map((link) => {

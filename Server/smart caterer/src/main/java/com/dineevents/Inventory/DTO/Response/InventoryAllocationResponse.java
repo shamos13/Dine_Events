@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 public class InventoryAllocationResponse {
     private Long allocationId;
     private Long eventId;
+    private Long inventoryId;
     private String inventoryName;
     private String eventName;
     private String clientName;
@@ -24,4 +25,6 @@ public class InventoryAllocationResponse {
     private BigDecimal flatRate;
 
     private BigDecimal totalCost;
+    /** Remaining units available in catalog after other active allocations. */
+    private Integer availableQuantity;
 }
