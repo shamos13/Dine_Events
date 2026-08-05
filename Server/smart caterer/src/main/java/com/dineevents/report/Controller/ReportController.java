@@ -3,6 +3,8 @@ package com.dineevents.report.Controller;
 import com.dineevents.report.DTO.ClientsReportDTO;
 import com.dineevents.report.DTO.EventsReportDTO;
 import com.dineevents.report.DTO.FinancialReportDTO;
+import com.dineevents.report.DTO.InventoryReportDTO;
+import com.dineevents.report.DTO.StaffReportDTO;
 import com.dineevents.report.Service.ReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -32,5 +34,15 @@ public class ReportController {
     @GetMapping("/clients")
     public ResponseEntity<ClientsReportDTO> getClientsReport() {
         return ResponseEntity.ok(reportService.getClientsReport());
+    }
+
+    @GetMapping("/staff")
+    public ResponseEntity<StaffReportDTO> getStaffReport() {
+        return ResponseEntity.ok(reportService.getStaffReport());
+    }
+
+    @GetMapping("/inventory")
+    public ResponseEntity<InventoryReportDTO> getInventoryReport() {
+        return ResponseEntity.ok(reportService.getInventoryReport());
     }
 }

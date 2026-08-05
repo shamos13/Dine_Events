@@ -19,6 +19,9 @@ public class QuotationResponseDTO {
     private String clientPhone;
     private String clientEmail;
     private BigDecimal subTotal;
+    private BigDecimal discountPercent;
+    private BigDecimal discountAmount;
+    private String discountReason;
     private BigDecimal total;
     private QuotationStatus quotationStatus;
     private LocalDate validUntil;

@@ -33,6 +33,16 @@ public class Quotation {
     @Column(nullable = false)
     private BigDecimal subTotal;
 
+    /** Snapshot of event discount % at generation time. */
+    @Column(precision = 5, scale = 2)
+    private BigDecimal discountPercent;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal discountAmount;
+
+    @Column(length = 1000)
+    private String discountReason;
+
     @Column(nullable = false)
     private BigDecimal total;
 

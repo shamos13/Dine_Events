@@ -28,6 +28,9 @@ export type QuotationTemplateData = {
     type?: string
   }>
   subtotal: number
+  discountPercent?: number
+  discountAmount?: number
+  discountReason?: string
   taxRate?: number
   taxAmount?: number
   total: number
@@ -63,6 +66,9 @@ export default function QuotationTemplate({
     eventVenue,
     lineItems = [],
     subtotal = 0,
+    discountPercent = 0,
+    discountAmount = 0,
+    discountReason,
     taxRate = 0,
     taxAmount = 0,
     total = 0,
@@ -228,6 +234,15 @@ export default function QuotationTemplate({
 
           <div className="space-y-3 sm:col-span-5">
             <SummaryRow label="Subtotal" value={formatCurrency(subtotal)} />
+            {discountPercent > 0 && (
+              <SummaryRow
+                label={`Discount (${discountPercent}%)`}
+                value={`− ${formatCurrency(discountAmount)}`}
+              />
+            )}
+            {discountReason && discountPercent > 0 && (
+              <p className="text-xs text-slate-500">{discountReason}</p>
+            )}
             {taxRate > 0 && <SummaryRow label={`Tax (${taxRate}%)`} value={formatCurrency(taxAmount)} />}
             <div className="border-t border-slate-200 pt-3">
               <SummaryRow label="Quotation Total" value={formatCurrency(total)} large />

@@ -16,8 +16,10 @@ import com.dineevents.Quotation.DTO.QuotationResponseDTO;
 import com.dineevents.Quotation.Entity.Quotation;
 import com.dineevents.Quotation.Repository.QuotationRepository;
 import com.dineevents.Quotation.Service.QuotationService;
+import com.dineevents.auth.DTO.Response.AuthResponseDTO;
 import com.dineevents.auth.Entity.AppUser;
 import com.dineevents.auth.Repository.AppUserRepository;
+import com.dineevents.auth.Service.AuthService;
 import com.dineevents.client.Entity.Client;
 import com.dineevents.client.Repository.ClientRepository;
 import com.dineevents.common.CurrentUserService;
@@ -35,6 +37,7 @@ import com.dineevents.Payment.Service.PaymentService;
 import com.dineevents.Menu.DTO.Response.EventMenuPackageSelectionResponseDTO;
 import com.dineevents.portal.DTO.Request.PortalEventCreateRequest;
 import com.dineevents.portal.DTO.Request.PortalEventUpdateRequest;
+import com.dineevents.portal.DTO.Request.PortalPasswordChangeRequest;
 import com.dineevents.portal.DTO.Request.PortalPayRequest;
 import com.dineevents.portal.DTO.Request.PortalProfileUpdateRequest;
 import com.dineevents.portal.DTO.Response.PortalActivityItemDTO;
@@ -60,6 +63,7 @@ public class PortalService {
     private final CurrentUserService currentUserService;
     private final ClientRepository clientRepository;
     private final AppUserRepository appUserRepository;
+    private final AuthService authService;
     private final EventRepository eventRepository;
     private final EventService eventService;
     private final EventConflictService eventConflictService;
@@ -81,10 +85,35 @@ public class PortalService {
     @Transactional
     public PortalProfileResponseDTO updateProfile(PortalProfileUpdateRequest request) {
         Client client = currentUserService.requireCurrentClient();
-        client.setFirstName(request.getFirstName());
-        client.setLastName(request.getLastName() != null ? request.getLastName() : "");
-        client.setClientPhone(request.getClientPhone());
-        client.setCompanyName(request.getCompanyName());
+        AppUser user = currentUserService.requireCurrentUser();
+
+        String email = request.getClientEmail().trim();
+        boolean emailChanged = !email.equalsIgnoreCase(user.getEmail())
+                || !email.equalsIgnoreCase(client.getClientEmail());
+
+        if (emailChanged) {
+            appUserRepository.findByEmailIgnoreCase(email).ifPresent(other -> {
+                if (!other.getUserId().equals(user.getUserId())) {
+                    throw new IllegalArgumentException("Email already registered: " + email);
+                }
+            });
+            boolean clientEmailTaken = clientRepository.findByClientEmailIgnoreCase(email).stream()
+                    .anyMatch(other -> !other.getClientId().equals(client.getClientId()));
+            if (clientEmailTaken) {
+                throw new IllegalArgumentException("Email already registered: " + email);
+            }
+            client.setClientEmail(email);
+            user.setEmail(email);
+        }
+
+        client.setFirstName(request.getFirstName().trim());
+        client.setLastName(request.getLastName() != null ? request.getLastName().trim() : "");
+        client.setClientPhone(request.getClientPhone().trim());
+        client.setCompanyName(
+                request.getCompanyName() != null && !request.getCompanyName().isBlank()
+                        ? request.getCompanyName().trim()
+                        : null
+        );
         client.setProfileImageUrl(
                 request.getProfileImageUrl() != null && !request.getProfileImageUrl().isBlank()
                         ? request.getProfileImageUrl().trim()
@@ -92,11 +121,22 @@ public class PortalService {
         );
         Client saved = clientRepository.save(client);
 
-        AppUser user = currentUserService.requireCurrentUser();
         user.setFullName((saved.getFirstName() + " " + (saved.getLastName() == null ? "" : saved.getLastName())).trim());
         appUserRepository.save(user);
 
-        return toProfile(saved);
+        PortalProfileResponseDTO response = toProfile(saved);
+        if (emailChanged) {
+            AuthResponseDTO tokens = authService.reissueTokens(user);
+            response.setToken(tokens.getToken());
+            response.setRefreshToken(tokens.getRefreshToken());
+        }
+        return response;
+    }
+
+    @Transactional
+    public void changePassword(PortalPasswordChangeRequest request) {
+        AppUser user = currentUserService.requireCurrentUser();
+        authService.changePassword(user, request.getCurrentPassword(), request.getNewPassword());
     }
 
     public PortalDashboardResponseDTO getDashboard() {
