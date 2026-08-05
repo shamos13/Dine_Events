@@ -123,6 +123,25 @@ public class AuthService {
         return toResponse(updated, token);
     }
 
+    @Transactional
+    public void changePassword(AppUser user, String currentPassword, String newPassword) {
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Current password is incorrect.");
+        }
+        if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("New password must be different from the current password.");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        appUserRepository.save(user);
+    }
+
+    @Transactional
+    public AuthResponseDTO reissueTokens(AppUser user) {
+        issueRefreshToken(user);
+        AppUser updated = appUserRepository.save(user);
+        return toResponse(updated, jwtService.generateToken(updated));
+    }
+
     private Client resolveOrCreateClient(RegisterRequestDTO dto) {
         List<Client> matches = clientRepository.findByClientEmailIgnoreCase(dto.getEmail());
         if (matches.size() == 1) {

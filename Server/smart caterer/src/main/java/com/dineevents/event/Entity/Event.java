@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -30,6 +31,13 @@ public class Event {
 
     @Column(length = 2000)
     private String specialRequests;
+
+    /** Percent off quotation subtotal (e.g. 10.00 = 10%). Applied when generating proposals. */
+    @Column(precision = 5, scale = 2)
+    private BigDecimal discountPercent;
+
+    @Column(length = 1000)
+    private String discountReason;
 
     @Enumerated(EnumType.STRING)
     private EventStatus eventStatus;
@@ -55,6 +63,9 @@ public class Event {
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now();
+        }
+        if (discountPercent == null) {
+            discountPercent = BigDecimal.ZERO;
         }
     }
 }

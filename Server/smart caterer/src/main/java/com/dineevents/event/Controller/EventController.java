@@ -1,5 +1,6 @@
 package com.dineevents.event.Controller;
 
+import com.dineevents.event.DTO.Request.EventDiscountUpdateRequest;
 import com.dineevents.event.DTO.Request.EventRequestDTO;
 import com.dineevents.event.DTO.Request.EventStatusUpdateRequest;
 import com.dineevents.event.DTO.Response.EventResponseDTO;
@@ -43,5 +44,17 @@ public class EventController {
             @RequestBody EventStatusUpdateRequest request
     ) {
         return ResponseEntity.ok(eventService.updateEventStatus(eventId, request.getEventStatus()));
+    }
+
+    @PatchMapping("/{eventId}/discount")
+    public ResponseEntity<EventResponseDTO> updateEventDiscount(
+            @PathVariable Long eventId,
+            @Valid @RequestBody EventDiscountUpdateRequest request
+    ) {
+        return ResponseEntity.ok(eventService.updateEventDiscount(
+                eventId,
+                request.getDiscountPercent(),
+                request.getDiscountReason()
+        ));
     }
 }

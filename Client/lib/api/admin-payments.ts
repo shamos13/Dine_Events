@@ -57,6 +57,19 @@ export const requestInvoicePayment = (invoiceId: number, payload: AdminPaymentRe
     }),
   })
 
+export type ManualPaymentRequest = {
+  invoiceId: number
+  amount: number
+  paymentMethod: 'CASH' | 'BANK'
+}
+
+export const recordManualPayment = (payload: ManualPaymentRequest) =>
+  apiClient<AdminPaymentResponse>('/payments/manual', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
 export const getAdminPaymentStatus = (paymentId: number) =>
   apiClient<AdminPaymentStatusResponse>(`/payments/${paymentId}/status`)
 
@@ -89,13 +102,7 @@ export async function waitForAdminPaymentResult(
 
   while (Date.now() - started < timeoutMs) {
     const status = await getAdminPaymentStatus(paymentId)
-    if (status.paymentStatus === 'FAILED') {
-      return status
-    }
-    if (
-      status.paymentStatus === 'COMPLETED' &&
-      (status.receiptConfirmed || (status.mpesaReceiptNumber && /^[A-Z0-9]{8,15}$/i.test(status.mpesaReceiptNumber)))
-    ) {
+    if (status.paymentStatus === 'FAILED' || status.paymentStatus === 'COMPLETED') {
       return status
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs))

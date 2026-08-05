@@ -27,7 +27,7 @@ app:
     passkey: ${MPESA_PASSKEY:}
     callback-url: ${MPESA_CALLBACK_URL:http://localhost:8080/api/v1/payments/mpesa/callback}
     transaction-type: CustomerPayBillOnline
-    reconcile-delay-ms: 10000
+    reconcile-delay-ms: 3000
   cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME:}
     api-key: ${CLOUDINARY_API_KEY:}

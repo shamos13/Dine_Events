@@ -1,6 +1,8 @@
 package com.dineevents.admin.Service;
 
 import com.dineevents.admin.DTO.AdminNotificationDTO;
+import com.dineevents.communication.Entity.EventMessage;
+import com.dineevents.communication.Service.EventMessageService;
 import com.dineevents.event.Entity.Event;
 import com.dineevents.event.Enums.EventStatus;
 import com.dineevents.event.Repository.EventRepository;
@@ -22,6 +24,7 @@ public class AdminNotificationService {
 
     private final EventRepository eventRepository;
     private final FeedbackRepository feedbackRepository;
+    private final EventMessageService eventMessageService;
 
     public List<AdminNotificationDTO> getNotifications() {
         List<AdminNotificationDTO> items = new ArrayList<>();
@@ -53,6 +56,25 @@ public class AdminNotificationService {
                     clientName + ": " + feedback.getSubject(),
                     "/crm",
                     feedback.getCreatedAt()
+            ));
+        }
+
+        List<EventMessage> unreadMessages = eventMessageService.findUnreadClientMessages();
+        for (EventMessage message : unreadMessages) {
+            Event event = message.getEvent();
+            String preview = message.getBody().length() > 80
+                    ? message.getBody().substring(0, 77) + "..."
+                    : message.getBody();
+            String title = message.getQuotation() != null
+                    ? "Quotation feedback"
+                    : "Client message";
+            items.add(new AdminNotificationDTO(
+                    "message-" + message.getMessageId(),
+                    "EVENT_MESSAGE",
+                    title,
+                    preview,
+                    "/events/" + event.getEventId() + "?tab=Communication",
+                    message.getCreatedAt()
             ));
         }
 

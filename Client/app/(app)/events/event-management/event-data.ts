@@ -13,6 +13,8 @@ export type EventRecord = {
   venue: string
   location: string
   specialRequests: string | null
+  discountPercent: number
+  discountReason: string | null
   status: EventStatus
   statusStyle: string
 }
@@ -51,6 +53,8 @@ export function toEventRecord(event: EventResponse): EventRecord {
     venue: event.eventVenue,
     location: event.eventLocation ?? '',
     specialRequests: event.specialRequests ?? null,
+    discountPercent: Number(event.discountPercent ?? 0),
+    discountReason: event.discountReason ?? null,
     status: event.eventStatus,
     statusStyle: statusStyle(event.eventStatus),
   }
