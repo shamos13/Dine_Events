@@ -13,12 +13,16 @@ import com.dineevents.Payment.DTO.Response.PaymentResponseDTO;
 import com.dineevents.Payment.DTO.Response.PaymentStatusResponseDTO;
 import com.dineevents.portal.DTO.Request.PortalEventCreateRequest;
 import com.dineevents.portal.DTO.Request.PortalEventUpdateRequest;
+import com.dineevents.portal.DTO.Request.PortalPasswordChangeRequest;
 import com.dineevents.portal.DTO.Request.PortalPayRequest;
 import com.dineevents.portal.DTO.Request.PortalProfileUpdateRequest;
 import com.dineevents.portal.DTO.Response.PortalCancellationResponseDTO;
 import com.dineevents.portal.DTO.Response.PortalDashboardResponseDTO;
 import com.dineevents.portal.DTO.Response.PortalEventDetailResponseDTO;
 import com.dineevents.portal.DTO.Response.PortalProfileResponseDTO;
+import com.dineevents.communication.DTO.Request.EventMessageRequest;
+import com.dineevents.communication.DTO.Response.EventMessageResponse;
+import com.dineevents.communication.Service.EventMessageService;
 import com.dineevents.portal.Service.PortalService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +41,7 @@ public class PortalController {
 
     private final PortalService portalService;
     private final FeedbackService feedbackService;
+    private final EventMessageService eventMessageService;
 
     @GetMapping("/me")
     public ResponseEntity<PortalProfileResponseDTO> getProfile() {
@@ -46,6 +51,12 @@ public class PortalController {
     @PutMapping("/me")
     public ResponseEntity<PortalProfileResponseDTO> updateProfile(@Valid @RequestBody PortalProfileUpdateRequest request) {
         return ResponseEntity.ok(portalService.updateProfile(request));
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<Void> changePassword(@Valid @RequestBody PortalPasswordChangeRequest request) {
+        portalService.changePassword(request);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/dashboard")
@@ -150,5 +161,18 @@ public class PortalController {
     @GetMapping("/feedback")
     public ResponseEntity<List<FeedbackResponseDTO>> getMyFeedback() {
         return ResponseEntity.ok(feedbackService.getMyFeedback());
+    }
+
+    @GetMapping("/events/{eventId}/messages")
+    public ResponseEntity<List<EventMessageResponse>> getEventMessages(@PathVariable Long eventId) {
+        return ResponseEntity.ok(eventMessageService.getMessagesForOwnedEvent(eventId));
+    }
+
+    @PostMapping("/events/{eventId}/messages")
+    public ResponseEntity<EventMessageResponse> postEventMessage(
+            @PathVariable Long eventId,
+            @Valid @RequestBody EventMessageRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(eventMessageService.postAsClient(eventId, request));
     }
 }

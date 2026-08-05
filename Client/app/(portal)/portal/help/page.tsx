@@ -192,8 +192,11 @@ export default function PortalHelpPage() {
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-700">
           <li>Build an event inquiry with date, venue, guests, and menu packages.</li>
           <li>Our team builds your proposal (menu, rentals, staffing) and sends it for your acceptance.</li>
-          <li>Accept the proposal to create an invoice, then pay the balance via M-Pesa.</li>
-          <li>Pay via M-Pesa STK Push — full or partial amounts.</li>
+          <li>Accept the proposal to create an invoice.</li>
+          <li>
+            Pay via M-Pesa — start with a suggested 30% deposit, then clear the rest in one or more installments.
+            Full payment history shows on each invoice.
+          </li>
           <li>Need a change? Open your booking to edit details or cancel (75% refund on paid amounts).</li>
         </ol>
       </Card>

@@ -4,6 +4,7 @@ import com.dineevents.Invoice.Entity.Invoice;
 import com.dineevents.Invoice.Enum.InvoiceStatus;
 import com.dineevents.Invoice.Repository.InvoiceRepository;
 import com.dineevents.Payment.DTO.Mpesa.StkCallbackPayload;
+import com.dineevents.Payment.DTO.Mpesa.StkPushQueryResponse;
 import com.dineevents.Payment.DTO.Mpesa.StkPushResponse;
 import com.dineevents.Payment.DTO.Request.ManualPaymentRequestDTO;
 import com.dineevents.Payment.DTO.Request.PaymentInitiateRequestDTO;
@@ -238,6 +239,7 @@ class PaymentWorkflowIntegrationTest {
 
     @Test
     void duplicateRecentPendingInitiateIsRejected() {
+        when(mpesaService.isEnabled()).thenReturn(false);
         when(mpesaService.initiateStkPush(anyString(), any(), anyString()))
                 .thenReturn(stkResponse("ws_CO_PEND_001"), stkResponse("ws_CO_PEND_002"));
 
@@ -256,6 +258,55 @@ class PaymentWorkflowIntegrationTest {
                 IllegalStateException.class,
                 () -> paymentService.initiateMpesaPayment(second));
         assertTrue(ex.getMessage().toLowerCase().contains("already pending"));
+    }
+
+    @Test
+    void stalePendingOnSamePhoneIsReconciledBeforeNewInitiate() {
+        when(mpesaService.isEnabled()).thenReturn(true);
+        when(mpesaService.initiateStkPush(anyString(), any(), anyString()))
+                .thenReturn(stkResponse("ws_CO_OLD_001"), stkResponse("ws_CO_NEW_002"));
+
+        PaymentInitiateRequestDTO first = new PaymentInitiateRequestDTO();
+        first.setInvoiceId(ownerInvoice.getInvoiceId());
+        first.setPhoneNumber("254700111111");
+        first.setAmount(new BigDecimal("1000.00"));
+        paymentService.initiateMpesaPayment(first);
+
+        Payment stale = paymentRepository.findByCheckoutRequestId("ws_CO_OLD_001").orElseThrow();
+        stale.setInitiatedAt(OffsetDateTime.now().minusMinutes(11));
+        paymentRepository.save(stale);
+
+        when(mpesaService.queryStkPush("ws_CO_OLD_001")).thenReturn(stkQueryFailure("Request cancelled by user"));
+
+        PaymentInitiateRequestDTO second = new PaymentInitiateRequestDTO();
+        second.setInvoiceId(ownerInvoice.getInvoiceId());
+        second.setPhoneNumber("254700111111");
+        second.setAmount(new BigDecimal("1000.00"));
+
+        PaymentInitiateResponseDTO retry = paymentService.initiateMpesaPayment(second);
+        assertNotNull(retry.getPaymentId());
+
+        Payment failedOld = paymentRepository.findByCheckoutRequestId("ws_CO_OLD_001").orElseThrow();
+        assertEquals(PaymentStatus.FAILED, failedOld.getPaymentStatus());
+    }
+
+    @Test
+    void mpesaInitiateErrorSurfacesAsConflictNotServerError() {
+        when(mpesaService.isEnabled()).thenReturn(true);
+        StkPushResponse error = new StkPushResponse();
+        error.setErrorMessage("DS timeout user cannot be reached");
+        when(mpesaService.initiateStkPush(anyString(), any(), anyString())).thenReturn(error);
+
+        PaymentInitiateRequestDTO request = new PaymentInitiateRequestDTO();
+        request.setInvoiceId(ownerInvoice.getInvoiceId());
+        request.setPhoneNumber("254700111111");
+        request.setAmount(new BigDecimal("1000.00"));
+
+        IllegalStateException ex = assertThrows(
+                IllegalStateException.class,
+                () -> paymentService.initiateMpesaPayment(request));
+        assertTrue(ex.getMessage().contains("DS timeout user cannot be reached"));
+        assertEquals(0, paymentRepository.findByInvoice_InvoiceIdOrderByInitiatedAtDesc(ownerInvoice.getInvoiceId()).size());
     }
 
     @Test
@@ -322,6 +373,13 @@ class PaymentWorkflowIntegrationTest {
         response.setMerchantRequestId("mr-" + checkoutRequestId);
         response.setResponseCode("0");
         response.setCustomerMessage("Success. Request accepted for processing");
+        return response;
+    }
+
+    private StkPushQueryResponse stkQueryFailure(String resultDesc) {
+        StkPushQueryResponse response = new StkPushQueryResponse();
+        response.setResultCode("1032");
+        response.setResultDesc(resultDesc);
         return response;
     }
 

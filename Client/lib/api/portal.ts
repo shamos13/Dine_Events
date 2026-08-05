@@ -11,14 +11,22 @@ export type PortalProfile = {
   clientPhone: string
   companyName: string | null
   profileImageUrl: string | null
+  token?: string | null
+  refreshToken?: string | null
 }
 
 export type PortalProfileUpdateRequest = {
   firstName: string
   lastName?: string
+  clientEmail: string
   clientPhone: string
   companyName?: string
   profileImageUrl?: string | null
+}
+
+export type PortalPasswordChangeRequest = {
+  currentPassword: string
+  newPassword: string
 }
 
 export type PortalActivityItem = {
@@ -74,7 +82,7 @@ export type QuotationLineItem = {
   includedMenuItemNames?: string[] | null
 }
 
-export type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
+export type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'SUPERSEDED'
 
 export type QuotationResponse = {
   quotationId: number
@@ -86,6 +94,9 @@ export type QuotationResponse = {
   clientPhone: string | null
   clientEmail: string | null
   subTotal: number
+  discountPercent?: number | null
+  discountAmount?: number | null
+  discountReason?: string | null
   total: number
   quotationStatus: QuotationStatus
   validUntil: string | null
@@ -212,6 +223,13 @@ export const getPortalProfile = () => apiClient<PortalProfile>('/portal/me')
 
 export const updatePortalProfile = (payload: PortalProfileUpdateRequest) =>
   apiClient<PortalProfile>('/portal/me', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
+export const changePortalPassword = (payload: PortalPasswordChangeRequest) =>
+  apiClient<void>('/portal/me/password', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

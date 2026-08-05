@@ -32,6 +32,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByPaymentStatusAndInitiatedAtBefore(PaymentStatus paymentStatus, OffsetDateTime initiatedBefore);
 
+    List<Payment> findByInvoice_InvoiceIdAndPaymentStatus(Long invoiceId, PaymentStatus paymentStatus);
+
+    List<Payment> findByPhoneNumberAndPaymentStatus(String phoneNumber, PaymentStatus paymentStatus);
+
     @Query("""
             SELECT p FROM Payment p
             JOIN p.invoice i

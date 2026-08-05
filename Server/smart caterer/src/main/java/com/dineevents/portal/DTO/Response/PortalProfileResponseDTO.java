@@ -12,4 +12,8 @@ public class PortalProfileResponseDTO {
     private String clientPhone;
     private String companyName;
     private String profileImageUrl;
+
+    /** Present when email changed and the session tokens were rotated. */
+    private String token;
+    private String refreshToken;
 }

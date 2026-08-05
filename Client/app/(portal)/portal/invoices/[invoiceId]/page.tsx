@@ -5,16 +5,20 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { CheckCircle2, Loader2, Smartphone, Wallet, XCircle } from 'lucide-react'
 import InvoiceTemplate from '@/components/InvoiceTemplate'
+import { InvoicePaymentHistory } from '@/components/payments/InvoicePaymentHistory'
+import { InvoicePaymentPlan } from '@/components/payments/InvoicePaymentPlan'
+import { PaymentAmountPresets } from '@/components/payments/PaymentAmountPresets'
 import { Modal } from '@/components/ui/modal'
 import { StatusPill } from '@/components/ui/status-pill'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/toast'
 import { ApiError } from '@/lib/api/client'
 import { formatKsh } from '@/lib/api/menu'
-import { confirmPaymentReceipt, isValidMpesaReceipt, waitForPaymentResult } from '@/lib/api/payments'
+import { isValidMpesaReceipt, waitForPaymentResult } from '@/lib/api/payments'
 import { getPortalInvoice, getPortalProfile, payPortalInvoice, type InvoiceResponse, type PaymentStatus } from '@/lib/api/portal'
+import { suggestedDeposit } from '@/lib/payments/partial'
 
-type PayPhase = 'idle' | 'awaiting' | 'completed' | 'failed' | 'pending' | 'needReceipt'
+type PayPhase = 'idle' | 'awaiting' | 'completed' | 'failed' | 'pending'
 
 export default function PortalInvoiceDetailPage() {
   const params = useParams<{ invoiceId: string }>()
@@ -28,10 +32,7 @@ export default function PortalInvoiceDetailPage() {
   const [paying, setPaying] = useState(false)
   const [pollOpen, setPollOpen] = useState(false)
   const [phase, setPhase] = useState<PayPhase>('idle')
-  const [paymentId, setPaymentId] = useState<number | null>(null)
   const [receipt, setReceipt] = useState<string | null>(null)
-  const [receiptInput, setReceiptInput] = useState('')
-  const [savingReceipt, setSavingReceipt] = useState(false)
   const [checkoutRef, setCheckoutRef] = useState<string | null>(null)
   const [statusDetail, setStatusDetail] = useState('')
 
@@ -41,7 +42,12 @@ export default function PortalInvoiceDetailPage() {
     try {
       const [inv, profile] = await Promise.all([getPortalInvoice(invoiceId), getPortalProfile()])
       setInvoice(inv)
-      setAmount(String(inv.balance ?? inv.amountDue ?? ''))
+      const balance = Number(inv.balance ?? 0)
+      const paid = Number(inv.amountPaid ?? 0)
+      const deposit = suggestedDeposit(Number(inv.amountDue ?? 0), balance)
+      // Default to deposit if unpaid, otherwise remaining balance.
+      const defaultAmount = paid <= 0 && deposit > 0 && deposit < balance ? deposit : balance
+      setAmount(String(defaultAmount || balance || inv.amountDue || ''))
       setPhone(profile.clientPhone ?? '')
     } catch (reason: unknown) {
       setError(reason instanceof ApiError ? reason.message : 'Unable to load invoice.')
@@ -56,10 +62,14 @@ export default function PortalInvoiceDetailPage() {
 
   const canPay =
     invoice &&
+    invoice.invoiceStatus !== 'CANCELLED' &&
+    invoice.invoiceStatus !== 'PAID' &&
     (invoice.invoiceStatus === 'UNPAID' ||
       invoice.invoiceStatus === 'PARTIALLY_PAID' ||
       invoice.invoiceStatus === 'OVERDUE') &&
     Number(invoice.balance) > 0
+
+  const isCancelled = invoice?.invoiceStatus === 'CANCELLED'
 
   const closeModal = () => {
     if (paying) return
@@ -72,25 +82,25 @@ export default function PortalInvoiceDetailPage() {
     setPaying(true)
     setPhase('awaiting')
     setReceipt(null)
-    setReceiptInput('')
-    setPaymentId(null)
     setCheckoutRef(null)
-    setStatusDetail('Check your phone and enter your M-Pesa PIN. We confirm with Safaricom within a few seconds.')
+    setStatusDetail(
+      'Check your phone and enter your M-Pesa PIN. We capture the receipt automatically from Safaricom.'
+    )
     setPollOpen(true)
     try {
       const payment = await payPortalInvoice(invoice.invoiceId, {
         phoneNumber: phone,
         amount: Number(amount),
       })
-      setPaymentId(payment.paymentId)
       setCheckoutRef(payment.checkoutRequestId ?? null)
 
       const result = await waitForPaymentResult(payment.paymentId, {
-        intervalMs: 1000,
-        timeoutMs: 60000,
+        intervalMs: 750,
+        timeoutMs: 90000,
+        requireReceipt: false,
       })
 
-      setReceipt(result.mpesaReceiptNumber)
+      setReceipt(result.mpesaReceiptNumber ?? null)
       setCheckoutRef(result.checkoutRequestId ?? payment.checkoutRequestId ?? null)
 
       const status = result.paymentStatus as PaymentStatus
@@ -101,11 +111,11 @@ export default function PortalInvoiceDetailPage() {
           setStatusDetail(`Payment confirmed. M-Pesa receipt ${result.mpesaReceiptNumber}`)
           toast(`Payment received · Receipt ${result.mpesaReceiptNumber}`, 'success')
         } else {
-          setPhase('needReceipt')
+          setPhase('completed')
           setStatusDetail(
-            'Payment confirmed and your invoice is updated. Enter the M-Pesa receipt code from your SMS so it is saved in payment history.'
+            'Payment confirmed and your invoice is updated. The M-Pesa receipt will appear in payment history when Safaricom finishes syncing.'
           )
-          toast('Payment received — enter your M-Pesa receipt code.', 'success')
+          toast('Payment received.', 'success')
         }
       } else if (status === 'FAILED') {
         setPhase('failed')
@@ -127,23 +137,6 @@ export default function PortalInvoiceDetailPage() {
     }
   }
 
-  const onSaveReceipt = async () => {
-    if (!paymentId || !receiptInput.trim()) return
-    setSavingReceipt(true)
-    try {
-      const confirmed = await confirmPaymentReceipt(paymentId, receiptInput.trim())
-      setReceipt(confirmed.mpesaReceiptNumber)
-      setPhase('completed')
-      setStatusDetail(`Payment confirmed. M-Pesa receipt ${confirmed.mpesaReceiptNumber}`)
-      toast(`Receipt ${confirmed.mpesaReceiptNumber} saved.`, 'success')
-      await load()
-    } catch (reason: unknown) {
-      toast(reason instanceof ApiError ? reason.message : 'Unable to save receipt.', 'error')
-    } finally {
-      setSavingReceipt(false)
-    }
-  }
-
   if (loading) return <Skeleton className="h-96 w-full" />
   if (error) return <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</p>
   if (!invoice) return null
@@ -160,6 +153,22 @@ export default function PortalInvoiceDetailPage() {
         <StatusPill status={invoice.invoiceStatus} />
       </div>
 
+      {isCancelled && (
+        <p role="status" className="rounded-lg border border-slate-300 bg-slate-100 p-4 text-sm text-slate-800">
+          This invoice was cancelled after a revised proposal. Please open your booking and pay the current invoice
+          instead — payment is not accepted on replaced invoices.
+        </p>
+      )}
+
+      {!isCancelled && (
+        <InvoicePaymentPlan
+          amountDue={Number(invoice.amountDue)}
+          amountPaid={Number(invoice.amountPaid)}
+          balance={Number(invoice.balance)}
+          dueDate={invoice.dueDate}
+        />
+      )}
+
       {canPay && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
           <div className="flex items-center gap-2">
@@ -167,8 +176,19 @@ export default function PortalInvoiceDetailPage() {
             <h2 className="text-lg font-bold text-emerald-950">Pay via M-Pesa</h2>
           </div>
           <p className="mt-1 text-sm text-emerald-800">
-            Outstanding balance {formatKsh(invoice.balance)}. You can pay in full or partially.
+            Outstanding balance {formatKsh(invoice.balance)}. Pay a deposit, a smaller installment, or the full
+            remaining amount.
           </p>
+
+          <PaymentAmountPresets
+            className="mt-4 text-emerald-900"
+            amountDue={Number(invoice.amountDue)}
+            balance={Number(invoice.balance)}
+            amountPaid={Number(invoice.amountPaid)}
+            selectedAmount={Number(amount) || 0}
+            onSelect={(value) => setAmount(String(value))}
+          />
+
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-emerald-900">Phone</label>
@@ -201,7 +221,7 @@ export default function PortalInvoiceDetailPage() {
             className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             <Wallet className="h-4 w-4" />
-            {paying ? 'Waiting for M-Pesa…' : 'Pay Now'}
+            {paying ? 'Waiting for M-Pesa…' : `Pay ${formatKsh(Number(amount) || 0)}`}
           </button>
         </section>
       )}
@@ -217,7 +237,7 @@ export default function PortalInvoiceDetailPage() {
           eventName: invoice.eventName,
           subtotal: Number(invoice.amountDue),
           totalDue: Number(invoice.amountDue),
-          paymentNotes: `Amount paid: ${formatKsh(invoice.amountPaid)} · Balance: ${formatKsh(invoice.balance)}`,
+          paymentNotes: `Paid ${formatKsh(invoice.amountPaid)} · Balance ${formatKsh(invoice.balance)}. Deposits and partial payments are accepted.`,
           lineItems: (invoice.lineItems ?? []).map((line) => ({
             id: line.lineItemId,
             description: line.lineItemDescription,
@@ -230,56 +250,22 @@ export default function PortalInvoiceDetailPage() {
         }}
       />
 
-      {invoice.payments && invoice.payments.length > 0 && (
-        <section className="rounded-xl border border-gray-200 bg-white p-5">
-          <h2 className="mb-3 text-lg font-bold text-gray-900">Payment history</h2>
-          <p className="mb-3 text-xs text-gray-500">
-            Use the M-Pesa receipt number to cross-check against your phone SMS or M-Pesa statement.
-          </p>
-          <ul className="space-y-2">
-            {invoice.payments.map((payment) => {
-              const receipt = isValidMpesaReceipt(payment.mpesaReceiptNumber)
-                ? payment.mpesaReceiptNumber
-                : null
-              return (
-                <li
-                  key={payment.paymentId}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-gray-900">
-                      {formatKsh(payment.amount)} via {payment.paymentMethod}
-                    </p>
-                    {receipt ? (
-                      <p className="mt-0.5 font-mono text-xs font-semibold tracking-wide text-emerald-800">
-                        M-Pesa receipt · {receipt}
-                      </p>
-                    ) : payment.paymentStatus === 'COMPLETED' ? (
-                      <p className="mt-0.5 text-xs text-amber-700">Receipt syncing from Safaricom…</p>
-                    ) : payment.checkoutRequestId ? (
-                      <p className="mt-0.5 font-mono text-xs text-gray-500">Request {payment.checkoutRequestId}</p>
-                    ) : null}
-                  </div>
-                  <StatusPill status={payment.paymentStatus} />
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      )}
+      <InvoicePaymentHistory
+        payments={invoice.payments}
+        amountDue={Number(invoice.amountDue)}
+        emptyMessage="No payments yet. Use the form above to pay a deposit or any amount toward this invoice."
+      />
 
       <Modal
         isOpen={pollOpen}
         onClose={closeModal}
-        closeDisabled={paying || phase === 'awaiting' || savingReceipt}
+        closeDisabled={paying || phase === 'awaiting'}
         title={
           phase === 'completed'
             ? 'Payment successful'
-            : phase === 'needReceipt'
-              ? 'Payment successful — add receipt'
-              : phase === 'failed'
-                ? 'Payment unsuccessful'
-                : 'Awaiting M-Pesa confirmation'
+            : phase === 'failed'
+              ? 'Payment unsuccessful'
+              : 'Awaiting M-Pesa confirmation'
         }
       >
         <div className="flex flex-col items-center text-center">
@@ -298,7 +284,7 @@ export default function PortalInvoiceDetailPage() {
                 <ol className="mt-1 list-decimal space-y-1 pl-4 text-emerald-900/90">
                   <li>Open the M-Pesa PIN prompt</li>
                   <li>Enter your PIN and confirm</li>
-                  <li>This screen updates automatically</li>
+                  <li>Receipt is saved automatically — no typing needed</li>
                 </ol>
               </div>
               {(checkoutRef || amount) && (
@@ -311,7 +297,7 @@ export default function PortalInvoiceDetailPage() {
             </>
           )}
 
-          {(phase === 'completed' || phase === 'needReceipt') && (
+          {phase === 'completed' && (
             <>
               <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
                 <CheckCircle2 className="h-12 w-12 text-emerald-600" strokeWidth={1.75} />
@@ -322,31 +308,12 @@ export default function PortalInvoiceDetailPage() {
                 <div className="mt-4 w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">M-Pesa receipt</p>
                   <p className="mt-1 font-mono text-lg font-bold tracking-wide text-emerald-950">{receipt}</p>
-                  <p className="mt-1 text-xs text-emerald-800/80">Saved to payment history for reconciliation.</p>
+                  <p className="mt-1 text-xs text-emerald-800/80">Captured automatically and saved to payment history.</p>
                 </div>
               ) : (
-                <div className="mt-4 w-full space-y-3 text-left">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
-                    M-Pesa receipt from your SMS
-                  </label>
-                  <input
-                    className="form-input font-mono uppercase tracking-wide"
-                    placeholder="e.g. NLJ7RT61SV"
-                    value={receiptInput}
-                    onChange={(e) => setReceiptInput(e.target.value.toUpperCase())}
-                    maxLength={15}
-                  />
-                  <button
-                    type="button"
-                    disabled={savingReceipt || !isValidMpesaReceipt(receiptInput)}
-                    onClick={onSaveReceipt}
-                    className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-                  >
-                    {savingReceipt ? 'Saving…' : 'Save receipt to payment history'}
-                  </button>
-                </div>
+                <p className="mt-4 text-sm text-amber-700">Receipt syncing from Safaricom…</p>
               )}
-              <p className="mt-2 text-xs text-gray-500">Invoice balance has been updated.</p>
+              <p className="mt-2 text-xs text-gray-500">Invoice balance and payment history have been updated.</p>
             </>
           )}
 

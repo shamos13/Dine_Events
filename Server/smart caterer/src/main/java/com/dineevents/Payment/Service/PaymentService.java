@@ -1,6 +1,7 @@
 package com.dineevents.Payment.Service;
 
 import com.dineevents.Invoice.Entity.Invoice;
+import com.dineevents.Invoice.Enum.InvoiceStatus;
 import com.dineevents.Invoice.Repository.InvoiceRepository;
 import com.dineevents.Invoice.Service.InvoiceService;
 import com.dineevents.Payment.DTO.Mpesa.StkCallbackPayload;
@@ -36,12 +37,20 @@ import java.util.UUID;
 public class PaymentService {
 
     private static final int DUPLICATE_PENDING_WINDOW_MINUTES = 2;
+    /** After this many minutes, a still-processing PENDING payment is failed so the client can retry. */
+    private static final int MAX_PENDING_AGE_MINUTES = 10;
     /** Background job: STK-query payments older than this. */
-    private static final int STALE_PENDING_SECONDS = 8;
+    private static final int STALE_PENDING_SECONDS = 3;
     /** Status-poll path: start querying Safaricom quickly after the PIN prompt. */
-    private static final int POLL_RECONCILE_AFTER_SECONDS = 2;
-    /** Aggressive follow-up probes after STK initiate (seconds). */
-    private static final long[] FOLLOW_UP_DELAYS_SECONDS = {3, 5, 8, 12, 18, 25, 35, 50};
+    private static final int POLL_RECONCILE_AFTER_SECONDS = 1;
+    /**
+     * Aggressive follow-up probes after STK initiate (seconds).
+     * Dense early window matters when ngrok/callback is down — money can already
+     * be deducted while Daraja still reports "processing" on the first few queries.
+     */
+    private static final long[] FOLLOW_UP_DELAYS_SECONDS = {
+            2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40, 45, 55, 70
+    };
 
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
@@ -82,15 +91,27 @@ public class PaymentService {
     }
 
     private PaymentInitiateResponseDTO doInitiateMpesa(Invoice invoice, BigDecimal amount, String phoneNumber) {
+        assertInvoicePayable(invoice);
         assertAmountWithinBalance(invoice, amount);
-        assertNoRecentPendingPayment(invoice.getInvoiceId());
 
         String normalizedPhone = normalizePhone(phoneNumber);
+        reconcileBlockingPendingPayments(invoice.getInvoiceId(), normalizedPhone);
+        assertNoRecentPendingPayment(invoice.getInvoiceId());
+
         StkPushResponse stkResponse = mpesaService.initiateStkPush(
                 normalizedPhone, amount, invoice.getInvoiceNumber());
 
         if (stkResponse == null || stkResponse.getCheckoutRequestId() == null) {
-            String reason = stkResponse != null ? stkResponse.getErrorMessage() : "No response from M-Pesa";
+            String reason = stkResponse != null ? stkResponse.getErrorMessage() : null;
+            if (reason == null && stkResponse != null) {
+                reason = stkResponse.getResponseDescription();
+            }
+            if (reason == null && stkResponse != null) {
+                reason = stkResponse.getCustomerMessage();
+            }
+            if (reason == null) {
+                reason = "No response from M-Pesa";
+            }
             throw new IllegalStateException("Failed to initiate M-Pesa payment: " + reason);
         }
 
@@ -199,6 +220,7 @@ public class PaymentService {
         Invoice invoice = invoiceRepository.findById(dto.getInvoiceId())
                 .orElseThrow(() -> new EntityNotFoundException("Invoice not found: " + dto.getInvoiceId()));
 
+        assertInvoicePayable(invoice);
         assertAmountWithinBalance(invoice, dto.getAmount());
 
         if (dto.getPaymentMethod() == PaymentMethod.MPESA) {
@@ -401,6 +423,12 @@ public class PaymentService {
             return;
         }
 
+        if (hasExceededMaxPendingAge(payment)) {
+            failMpesaPayment(payment,
+                    "Payment confirmation timed out. If M-Pesa deducted funds, refresh this page or contact support with your SMS receipt.");
+            return;
+        }
+
         StkPushQueryResponse query = mpesaService.queryStkPush(payment.getCheckoutRequestId());
         if (query == null) {
             return;
@@ -416,6 +444,10 @@ public class PaymentService {
             if (isStillProcessingMessage(msg)) {
                 log.info("STK query for paymentId={} still in flight (errorCode={}, msg={})",
                         payment.getPaymentId(), errorCode, msg);
+                if (hasExceededMaxPendingAge(payment)) {
+                    failMpesaPayment(payment,
+                            "Payment confirmation timed out. If M-Pesa deducted funds, refresh this page or contact support with your SMS receipt.");
+                }
                 return;
             }
             // Expired / unknown checkout — fail so the client can retry.
@@ -431,6 +463,10 @@ public class PaymentService {
         if (isStillProcessingMessage(resultDesc)) {
             log.info("STK query for paymentId={} still processing (ResultCode={}, desc={})",
                     payment.getPaymentId(), resultCode, resultDesc);
+            if (hasExceededMaxPendingAge(payment)) {
+                failMpesaPayment(payment,
+                        "Payment confirmation timed out. If M-Pesa deducted funds, refresh this page or contact support with your SMS receipt.");
+            }
             return;
         }
 
@@ -440,8 +476,8 @@ public class PaymentService {
         }
 
         if ("0".equals(resultCode)) {
-            // STK query confirms success but NEVER returns MpesaReceiptNumber.
-            // Complete + credit the invoice now; late callback will backfill the real receipt.
+            // Fast path: credit as soon as STK Query confirms success.
+            // MpesaReceiptNumber only arrives via callback — late callback backfills it.
             completeMpesaPayment(fresh, null, fresh.getPhoneNumber());
         } else {
             failMpesaPayment(fresh, resultDesc != null
@@ -570,6 +606,16 @@ public class PaymentService {
                 reason);
     }
 
+    private void assertInvoicePayable(Invoice invoice) {
+        if (invoice.getInvoiceStatus() == InvoiceStatus.CANCELLED) {
+            throw new IllegalStateException(
+                    "This invoice was cancelled after a revised proposal. Please use the latest invoice.");
+        }
+        if (invoice.getInvoiceStatus() == InvoiceStatus.PAID) {
+            throw new IllegalStateException("This invoice is already paid.");
+        }
+    }
+
     private void assertAmountWithinBalance(Invoice invoice, BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Payment amount must be greater than zero");
@@ -592,6 +638,27 @@ public class PaymentService {
                                     + existing.getPaymentId()
                                     + "). Please wait for it to complete or fail before starting another.");
                 });
+    }
+
+    /**
+     * Resolve PENDING rows that block a new STK push (same invoice or phone) before initiating another.
+     */
+    private void reconcileBlockingPendingPayments(Long invoiceId, String phoneNumber) {
+        if (!mpesaService.isEnabled()) {
+            return;
+        }
+        paymentRepository.findByInvoice_InvoiceIdAndPaymentStatus(invoiceId, PaymentStatus.PENDING)
+                .forEach(this::reconcileOne);
+        if (phoneNumber != null && !phoneNumber.isBlank()) {
+            paymentRepository.findByPhoneNumberAndPaymentStatus(phoneNumber, PaymentStatus.PENDING)
+                    .forEach(this::reconcileOne);
+        }
+    }
+
+    private boolean hasExceededMaxPendingAge(Payment payment) {
+        return payment.getInitiatedAt() != null
+                && payment.getInitiatedAt().isBefore(
+                        OffsetDateTime.now().minusMinutes(MAX_PENDING_AGE_MINUTES));
     }
 
     private String extractReceiptNumber(StkCallbackPayload.StkCallback callback) {
@@ -696,18 +763,29 @@ public class PaymentService {
     public PaymentResponseDTO toResponseDTO(Payment payment) {
         PaymentResponseDTO dto = new PaymentResponseDTO();
         dto.setPaymentId(payment.getPaymentId());
-        dto.setInvoiceNumber(payment.getInvoice().getInvoiceNumber());
-        dto.setEventName(payment.getInvoice().getEvent().getEventName());
-        if (payment.getInvoice().getEvent().getClient() != null) {
-            dto.setClientName(payment.getInvoice().getEvent().getClient().getFirstName()
-                    + " " + payment.getInvoice().getEvent().getClient().getLastName());
+        if (payment.getInvoice() != null) {
+            dto.setInvoiceNumber(payment.getInvoice().getInvoiceNumber());
+            if (payment.getInvoice().getEvent() != null) {
+                dto.setEventName(payment.getInvoice().getEvent().getEventName());
+                if (payment.getInvoice().getEvent().getClient() != null) {
+                    String first = payment.getInvoice().getEvent().getClient().getFirstName();
+                    String last = payment.getInvoice().getEvent().getClient().getLastName();
+                    dto.setClientName(((first == null ? "" : first) + " " + (last == null ? "" : last)).trim());
+                }
+            }
         }
         dto.setAmount(payment.getAmount());
         dto.setPaymentMethod(payment.getPaymentMethod());
         dto.setPaymentStatus(payment.getPaymentStatus());
-        dto.setMpesaReceiptNumber(isValidMpesaReceipt(payment.getMpesaReceiptNumber())
-                ? payment.getMpesaReceiptNumber()
-                : null);
+        // Refund audit refs use REF-… (not Safaricom receipts); keep them visible in reports.
+        String receipt = payment.getMpesaReceiptNumber();
+        if (payment.getPaymentStatus() == PaymentStatus.REFUNDED
+                && receipt != null
+                && !receipt.isBlank()) {
+            dto.setMpesaReceiptNumber(receipt.trim());
+        } else {
+            dto.setMpesaReceiptNumber(isValidMpesaReceipt(receipt) ? receipt : null);
+        }
         dto.setCheckoutRequestId(payment.getCheckoutRequestId());
         dto.setPhoneNumber(payment.getPhoneNumber());
         dto.setFailureReason(payment.getFailureReason());

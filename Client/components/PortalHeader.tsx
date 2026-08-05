@@ -43,6 +43,8 @@ export default function PortalHeader() {
       .then((profile) => {
         updateUser({
           fullName: profile.fullName,
+          businessName: profile.companyName,
+          email: profile.clientEmail,
           profileImageUrl: profile.profileImageUrl,
         })
       })
@@ -111,7 +113,7 @@ export default function PortalHeader() {
                   className="flex w-full items-center gap-2 px-4 py-3 text-sm text-gray-700 transition hover:bg-gray-50 hover:text-[#CC2622]"
                 >
                   <UserRound size={16} />
-                  Profile & photo
+                  Profile & account
                 </Link>
                 <button
                   type="button"

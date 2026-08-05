@@ -22,17 +22,18 @@ export function isValidMpesaReceipt(receipt?: string | null): boolean {
 }
 
 /**
- * Fast poll: STK follow-ups run server-side every few seconds, so we check often.
- * Returns on FAILED, or COMPLETED with a confirmed receipt.
- * If COMPLETED without receipt (callback missed), returns that state so the UI
- * can collect the SMS receipt code.
+ * Poll until FAILED or COMPLETED.
+ *
+ * Receipts arrive only from Safaricom's callback (backfilled server-side).
+ * By default we return as soon as the payment is COMPLETED so the UI is not
+ * blocked waiting for a late callback; pass requireReceipt: true to wait.
  */
 export async function waitForPaymentResult(
   paymentId: number,
   options: { intervalMs?: number; timeoutMs?: number; requireReceipt?: boolean } = {}
 ): Promise<PaymentStatusResponse> {
-  const intervalMs = options.intervalMs ?? 1000
-  const timeoutMs = options.timeoutMs ?? 60000
+  const intervalMs = options.intervalMs ?? 750
+  const timeoutMs = options.timeoutMs ?? 90000
   const requireReceipt = options.requireReceipt ?? false
   const started = Date.now()
   let last: PaymentStatusResponse | null = null
@@ -45,11 +46,10 @@ export async function waitForPaymentResult(
     }
 
     if (last.paymentStatus === 'COMPLETED') {
-      if (last.receiptConfirmed || isValidMpesaReceipt(last.mpesaReceiptNumber)) {
+      if (!requireReceipt) {
         return last
       }
-      // Completed via STK query — give the callback a short window, then surface to UI.
-      if (!requireReceipt && Date.now() - started > 12000) {
+      if (last.receiptConfirmed || isValidMpesaReceipt(last.mpesaReceiptNumber)) {
         return last
       }
     }
