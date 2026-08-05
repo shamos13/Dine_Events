@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { Eye, Flag, Loader2, MessageSquare, Send, X } from 'lucide-react'
+import QuotationTemplate from '@/components/QuotationTemplate'
 import { ApiError } from '@/lib/api/client'
+import {
+  getPortalEventMessages,
+  postPortalEventMessage,
+  type EventMessage,
+} from '@/lib/api/communication'
 import { formatKsh, type MenuPackageResponse } from '@/lib/api/menu'
 import {
   acceptPortalQuotation,
@@ -13,7 +20,9 @@ import {
   getPortalMenuPackages,
   updatePortalEvent,
   type PortalEventDetail,
+  type QuotationResponse,
 } from '@/lib/api/portal'
+import { quotationToTemplateData } from '@/lib/quotations/template'
 import { Card } from '@/components/ui/card'
 import { Modal } from '@/components/ui/modal'
 import { StatusPill } from '@/components/ui/status-pill'
@@ -48,6 +57,14 @@ export default function PortalBookingDetailPage() {
   const [cancelling, setCancelling] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [packages, setPackages] = useState<MenuPackageResponse[]>([])
+  const [previewQuotation, setPreviewQuotation] = useState<QuotationResponse | null>(null)
+  const [flagQuotation, setFlagQuotation] = useState<QuotationResponse | null>(null)
+  const [flagBody, setFlagBody] = useState('')
+  const [flagSending, setFlagSending] = useState(false)
+  const [messages, setMessages] = useState<EventMessage[]>([])
+  const [messagesLoading, setMessagesLoading] = useState(false)
+  const [messageBody, setMessageBody] = useState('')
+  const [messageSending, setMessageSending] = useState(false)
   const [editForm, setEditForm] = useState({
     eventName: '',
     guestCount: '',
@@ -59,16 +76,28 @@ export default function PortalBookingDetailPage() {
     menuPackageIds: [] as number[],
   })
 
+  const loadMessages = useCallback(() => {
+    if (!Number.isFinite(eventId)) return
+    setMessagesLoading(true)
+    getPortalEventMessages(eventId)
+      .then(setMessages)
+      .catch(() => setMessages([]))
+      .finally(() => setMessagesLoading(false))
+  }, [eventId])
+
   const load = useCallback(() => {
     if (!Number.isFinite(eventId)) return
     setLoading(true)
     getPortalEvent(eventId)
-      .then(setDetail)
+      .then((data) => {
+        setDetail(data)
+        loadMessages()
+      })
       .catch((reason: unknown) =>
         setError(reason instanceof ApiError ? reason.message : 'Unable to load booking.')
       )
       .finally(() => setLoading(false))
-  }, [eventId])
+  }, [eventId, loadMessages])
 
   useEffect(() => {
     load()
@@ -170,6 +199,44 @@ export default function PortalBookingDetailPage() {
       setActionError(reason instanceof ApiError ? reason.message : 'Unable to cancel booking.')
     } finally {
       setCancelling(false)
+    }
+  }
+
+  const onFlagQuotation = async () => {
+    if (!flagQuotation || !flagBody.trim()) return
+    setFlagSending(true)
+    try {
+      await postPortalEventMessage(eventId, {
+        body: flagBody.trim(),
+        quotationId: flagQuotation.quotationId,
+        messageKind: 'QUOTATION_FLAG',
+      })
+      toast('Issue flagged for your planner.', 'success')
+      setFlagQuotation(null)
+      setFlagBody('')
+      loadMessages()
+    } catch (reason: unknown) {
+      toast(reason instanceof ApiError ? reason.message : 'Unable to send feedback.', 'error')
+    } finally {
+      setFlagSending(false)
+    }
+  }
+
+  const onSendMessage = async () => {
+    if (!messageBody.trim()) return
+    setMessageSending(true)
+    try {
+      const created = await postPortalEventMessage(eventId, {
+        body: messageBody.trim(),
+        messageKind: 'GENERAL',
+      })
+      setMessages((current) => [...current, created])
+      setMessageBody('')
+      toast('Message sent to your planner.', 'success')
+    } catch (reason: unknown) {
+      toast(reason instanceof ApiError ? reason.message : 'Unable to send message.', 'error')
+    } finally {
+      setMessageSending(false)
     }
   }
 
@@ -293,52 +360,162 @@ export default function PortalBookingDetailPage() {
           </p>
         )}
         <div className="space-y-4">
-          {detail.quotations.map((quotation) => (
-            <div key={quotation.quotationId} className="rounded-xl border border-gray-200 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-bold text-gray-900">
-                    {quotation.quotationNumber} · {quotation.quotationName}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-600">Total {formatKsh(quotation.total)}</p>
-                  {quotation.quotationStatus === 'SENT' && (
-                    <p className="mt-1 text-xs text-amber-700">
-                      Awaiting your acceptance — review the proposal, then accept to generate an invoice.
-                    </p>
-                  )}
-                  {quotation.quotationStatus === 'ACCEPTED' && (
-                    <p className="mt-1 text-xs text-emerald-700">
-                      Accepted — invoice is ready.{' '}
-                      <Link href="/portal/invoices" className="font-semibold underline">
-                        Go to invoices
-                      </Link>
-                    </p>
-                  )}
+          {[...detail.quotations]
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .map((quotation) => {
+              const superseded = quotation.quotationStatus === 'SUPERSEDED' || quotation.quotationStatus === 'EXPIRED'
+              const currentSent = quotation.quotationStatus === 'SENT'
+              return (
+                <div
+                  key={quotation.quotationId}
+                  className={`rounded-xl border p-4 ${
+                    superseded
+                      ? 'border-slate-200 bg-slate-50 opacity-80'
+                      : currentSent
+                        ? 'border-brand/40 bg-white shadow-sm'
+                        : 'border-gray-200 bg-white'
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-bold text-gray-900">
+                          {quotation.quotationNumber} · {quotation.quotationName}
+                        </p>
+                        {currentSent && (
+                          <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-brand">
+                            Current
+                          </span>
+                        )}
+                        {superseded && (
+                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-700">
+                            Replaced
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-sm text-gray-600">Total {formatKsh(quotation.total)}</p>
+                      {currentSent && (
+                        <p className="mt-1 text-xs text-amber-700">
+                          Awaiting your acceptance — review the proposal, then accept to generate an invoice.
+                        </p>
+                      )}
+                      {quotation.quotationStatus === 'ACCEPTED' && (
+                        <p className="mt-1 text-xs text-emerald-700">
+                          Accepted — invoice is ready.{' '}
+                          <Link href="/portal/invoices" className="font-semibold underline">
+                            Go to invoices
+                          </Link>
+                        </p>
+                      )}
+                      {superseded && (
+                        <p className="mt-1 text-xs text-slate-600">
+                          This proposal was replaced by a revised quote after adjustments. It can no longer be accepted.
+                        </p>
+                      )}
+                    </div>
+                    <StatusPill status={quotation.quotationStatus} />
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewQuotation(quotation)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Show quotation
+                    </button>
+                    {currentSent && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFlagQuotation(quotation)
+                          setFlagBody('')
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+                      >
+                        <Flag className="h-4 w-4" />
+                        Flag an issue
+                      </button>
+                    )}
+                    {currentSent && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={busyId === quotation.quotationId}
+                          onClick={() => onAccept(quotation.quotationId)}
+                          className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
+                        >
+                          Accept & generate invoice
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId === quotation.quotationId}
+                          onClick={() => onDecline(quotation.quotationId)}
+                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Decline
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <StatusPill status={quotation.quotationStatus} />
-              </div>
-              {quotation.quotationStatus === 'SENT' && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={busyId === quotation.quotationId}
-                    onClick={() => onAccept(quotation.quotationId)}
-                    className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
+              )
+            })}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="mb-4 flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-brand" />
+          <h2 className="text-lg font-bold text-gray-900">Message your planner</h2>
+        </div>
+        <p className="mb-4 text-sm text-gray-600">
+          Share what you need changed. Messages appear in the event Communication tab for your planner.
+        </p>
+        {messagesLoading ? (
+          <p className="text-sm text-gray-500">Loading conversation...</p>
+        ) : messages.length === 0 ? (
+          <p className="mb-4 text-sm text-gray-500">No messages yet for this booking.</p>
+        ) : (
+          <div className="mb-4 max-h-64 space-y-3 overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-3">
+            {messages.map((message) => {
+              const mine = message.sender === 'CLIENT'
+              return (
+                <div key={message.messageId} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                      mine ? 'bg-brand text-white' : 'border border-gray-200 bg-white text-gray-900'
+                    }`}
                   >
-                    Accept & generate invoice
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyId === quotation.quotationId}
-                    onClick={() => onDecline(quotation.quotationId)}
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Decline
-                  </button>
+                    {message.messageKind === 'QUOTATION_FLAG' && (
+                      <p className={`mb-1 text-[11px] font-bold uppercase tracking-wide ${mine ? 'text-white/80' : 'text-amber-700'}`}>
+                        Quotation flag{message.quotationNumber ? ` · ${message.quotationNumber}` : ''}
+                      </p>
+                    )}
+                    <p className="whitespace-pre-wrap">{message.body}</p>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+              )
+            })}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <textarea
+            value={messageBody}
+            onChange={(e) => setMessageBody(e.target.value)}
+            rows={2}
+            placeholder="Tell your planner what you need..."
+            className="form-input min-h-[44px] flex-1 resize-y"
+          />
+          <button
+            type="button"
+            disabled={messageSending || !messageBody.trim()}
+            onClick={onSendMessage}
+            className="inline-flex h-11 shrink-0 items-center gap-2 self-end rounded-lg bg-brand px-4 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {messageSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Send
+          </button>
         </div>
       </Card>
 
@@ -346,24 +523,114 @@ export default function PortalBookingDetailPage() {
         <h2 className="mb-4 text-lg font-bold text-gray-900">Invoices</h2>
         {detail.invoices.length === 0 && <p className="text-sm text-gray-500">No invoices for this event yet.</p>}
         <ul className="space-y-3">
-          {detail.invoices.map((invoice) => (
-            <li key={invoice.invoiceId}>
-              <Link
-                href={`/portal/invoices/${invoice.invoiceId}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-100 p-3 hover:border-brand/40"
-              >
-                <div>
-                  <p className="font-semibold text-gray-900">{invoice.invoiceNumber}</p>
-                  <p className="text-sm text-gray-600">
-                    Due {invoice.dueDate} · Balance {formatKsh(invoice.balance)}
-                  </p>
-                </div>
-                <StatusPill status={invoice.invoiceStatus} />
-              </Link>
-            </li>
-          ))}
+          {[...detail.invoices]
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .map((invoice) => {
+              const cancelled = invoice.invoiceStatus === 'CANCELLED'
+              const current =
+                !cancelled &&
+                (invoice.invoiceStatus === 'UNPAID' ||
+                  invoice.invoiceStatus === 'PARTIALLY_PAID' ||
+                  invoice.invoiceStatus === 'OVERDUE')
+              return (
+                <li key={invoice.invoiceId}>
+                  <Link
+                    href={`/portal/invoices/${invoice.invoiceId}`}
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 ${
+                      cancelled
+                        ? 'border-slate-200 bg-slate-50 text-slate-500'
+                        : current
+                          ? 'border-brand/40 hover:border-brand/60'
+                          : 'border-gray-100 hover:border-brand/40'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className={`font-semibold ${cancelled ? 'text-slate-600' : 'text-gray-900'}`}>
+                          {invoice.invoiceNumber}
+                        </p>
+                        {current && (
+                          <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-brand">
+                            Current
+                          </span>
+                        )}
+                        {cancelled && (
+                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-700">
+                            Replaced
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {cancelled
+                          ? 'Cancelled after a revised proposal — do not pay this invoice.'
+                          : `Due ${invoice.dueDate} · Paid ${formatKsh(invoice.amountPaid)} · Balance ${formatKsh(invoice.balance)}`}
+                      </p>
+                      {current && Number(invoice.balance) > 0 && (
+                        <p className="mt-0.5 text-xs font-medium text-brand">
+                          Pay a deposit or installment →
+                        </p>
+                      )}
+                    </div>
+                    <StatusPill status={invoice.invoiceStatus} />
+                  </Link>
+                </li>
+              )
+            })}
         </ul>
       </Card>
+
+      {previewQuotation && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-white">
+                {previewQuotation.quotationNumber} · {previewQuotation.quotationStatus.replaceAll('_', ' ')}
+              </p>
+              <button
+                type="button"
+                onClick={() => setPreviewQuotation(null)}
+                className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow"
+              >
+                <X className="h-4 w-4" />
+                Close
+              </button>
+            </div>
+            <QuotationTemplate data={quotationToTemplateData(previewQuotation)} showActions={false} />
+          </div>
+        </div>
+      )}
+
+      <Modal
+        isOpen={!!flagQuotation}
+        onClose={() => !flagSending && setFlagQuotation(null)}
+        title="Flag quotation issue"
+      >
+        {flagQuotation && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Tell your planner what is wrong with{' '}
+              <span className="font-semibold">{flagQuotation.quotationNumber}</span>. This goes to the event
+              Communication tab.
+            </p>
+            <textarea
+              value={flagBody}
+              onChange={(e) => setFlagBody(e.target.value)}
+              rows={4}
+              placeholder="e.g. The rental quantity for chairs is too high, or the menu package price needs adjusting..."
+              className="form-input w-full resize-y"
+            />
+            <button
+              type="button"
+              disabled={flagSending || !flagBody.trim()}
+              onClick={onFlagQuotation}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              {flagSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className="h-4 w-4" />}
+              Send flag
+            </button>
+          </div>
+        )}
+      </Modal>
 
       <Modal isOpen={editOpen} onClose={() => setEditOpen(false)} title="Edit booking" size="lg">
         <div className="space-y-4">

@@ -15,6 +15,8 @@ import java.util.Optional;
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     List<Invoice> findByEvent_EventId(Long eventId);
 
+    List<Invoice> findByQuotation_QuotationId(Long quotationId);
+
     List<Invoice> findByEvent_Client_ClientIdOrderByCreatedAtDesc(Long clientId);
 
     Optional<Invoice> findByInvoiceIdAndEvent_Client_ClientId(Long invoiceId, Long clientId);

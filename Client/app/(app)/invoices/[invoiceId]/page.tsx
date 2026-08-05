@@ -2,19 +2,27 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Smartphone, Wallet } from 'lucide-react'
+import { Banknote, Smartphone, Wallet } from 'lucide-react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import InvoiceTemplate, { type InvoiceTemplateData } from '@/components/InvoiceTemplate'
+import { InvoicePaymentHistory } from '@/components/payments/InvoicePaymentHistory'
+import { InvoicePaymentPlan } from '@/components/payments/InvoicePaymentPlan'
+import { PaymentAmountPresets } from '@/components/payments/PaymentAmountPresets'
 import SendInvoiceModal from '@/components/SendInvoiceModal'
 import { Modal } from '@/components/ui/modal'
-import { StatusPill } from '@/components/ui/status-pill'
 import { useToast } from '@/components/ui/toast'
 import { getInvoice, type InvoiceResponse } from '@/lib/api/invoices'
 import { getQuotations, type QuotationResponse } from '@/lib/api/quotations'
 import { getEvents, type EventResponse } from '@/lib/api/events'
 import { ApiError } from '@/lib/api/client'
-import { requestInvoicePayment, waitForAdminPaymentResult } from '@/lib/api/admin-payments'
+import { formatKsh } from '@/lib/api/menu'
+import {
+  recordManualPayment,
+  requestInvoicePayment,
+  waitForAdminPaymentResult,
+} from '@/lib/api/admin-payments'
+import { suggestedDeposit } from '@/lib/payments/partial'
 
 export default function InvoiceDetailPage() {
   const { invoiceId } = useParams<{ invoiceId: string }>()
@@ -25,8 +33,10 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sendModalOpen, setSendModalOpen] = useState(false)
+  const [payMode, setPayMode] = useState<'mpesa' | 'manual'>('mpesa')
   const [phone, setPhone] = useState('')
   const [amount, setAmount] = useState('')
+  const [manualMethod, setManualMethod] = useState<'CASH' | 'BANK'>('CASH')
   const [requesting, setRequesting] = useState(false)
   const [pollOpen, setPollOpen] = useState(false)
   const [pollMessage, setPollMessage] = useState('')
@@ -42,7 +52,11 @@ export default function InvoiceDetailPage() {
         getEvents().catch(() => []),
       ])
       setInvoice(invData)
-      setAmount(String(invData.balance ?? invData.amountDue ?? ''))
+      const balance = Number(invData.balance ?? 0)
+      const paid = Number(invData.amountPaid ?? 0)
+      const deposit = suggestedDeposit(Number(invData.amountDue ?? 0), balance)
+      const defaultAmount = paid <= 0 && deposit > 0 && deposit < balance ? deposit : balance
+      setAmount(String(defaultAmount || balance || invData.amountDue || ''))
       setPhone(invData.clientPhone ?? '')
       const matchedQuotation = quotationsData
         .filter((q) => q.eventId === invData.eventId)
@@ -94,6 +108,27 @@ export default function InvoiceDetailPage() {
       const message = reason instanceof ApiError ? reason.message : 'Unable to send payment request.'
       setPollMessage(message)
       toast(message, 'error')
+    } finally {
+      setRequesting(false)
+    }
+  }
+
+  const onRecordManual = async () => {
+    if (!invoice) return
+    setRequesting(true)
+    try {
+      await recordManualPayment({
+        invoiceId: invoice.invoiceId,
+        amount: Number(amount),
+        paymentMethod: manualMethod,
+      })
+      toast(
+        `${manualMethod === 'CASH' ? 'Cash' : 'Bank'} payment of ${formatKsh(Number(amount))} recorded.`,
+        'success'
+      )
+      await load()
+    } catch (reason: unknown) {
+      toast(reason instanceof ApiError ? reason.message : 'Unable to record payment.', 'error')
     } finally {
       setRequesting(false)
     }
@@ -153,40 +188,96 @@ export default function InvoiceDetailPage() {
     taxRate: subtotal > 0 && taxAmount > 0 ? Number(((taxAmount / subtotal) * 100).toFixed(2)) : 0,
     taxAmount,
     totalDue: invoiceTotal,
+    paymentNotes: `Paid ${formatKsh(invoice.amountPaid)} · Balance ${formatKsh(invoice.balance)}. Deposits and partial payments are accepted.`,
   }
 
   return (
     <div className="min-h-screen bg-[#f7f8fc] text-slate-900 flex flex-col">
       <div className="print:hidden"><Header /></div>
       <main className="flex-1 mx-auto w-full max-w-[1440px] px-6 py-10 lg:px-8 space-y-6">
+        <div className="print:hidden">
+          <InvoicePaymentPlan
+            amountDue={Number(invoice.amountDue)}
+            amountPaid={Number(invoice.amountPaid)}
+            balance={Number(invoice.balance)}
+            dueDate={invoice.dueDate}
+          />
+        </div>
+
         {canRequestPayment && (
           <section className="print:hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
             <div className="flex items-center gap-2">
               <Wallet className="h-5 w-5 text-emerald-700" />
-              <h2 className="text-lg font-bold text-emerald-950">Request M-Pesa Payment</h2>
+              <h2 className="text-lg font-bold text-emerald-950">Collect payment</h2>
             </div>
             <p className="mt-1 text-sm text-emerald-800">
-              Send an STK push straight to the client&apos;s phone. Outstanding balance{' '}
-              <span className="font-semibold">
-                KSh {Number(invoice.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-              </span>
-              .
+              Request M-Pesa or record cash/bank. Outstanding balance{' '}
+              <span className="font-semibold">{formatKsh(invoice.balance)}</span>. Deposit and installment amounts are
+              supported.
             </p>
+
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPayMode('mpesa')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                  payMode === 'mpesa' ? 'bg-emerald-600 text-white' : 'border border-emerald-300 bg-white text-emerald-900'
+                }`}
+              >
+                M-Pesa STK
+              </button>
+              <button
+                type="button"
+                onClick={() => setPayMode('manual')}
+                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                  payMode === 'manual' ? 'bg-slate-800 text-white' : 'border border-emerald-300 bg-white text-emerald-900'
+                }`}
+              >
+                <Banknote className="h-3.5 w-3.5" />
+                Cash / Bank
+              </button>
+            </div>
+
+            <PaymentAmountPresets
+              className="mt-4 text-emerald-900"
+              amountDue={Number(invoice.amountDue)}
+              balance={Number(invoice.balance)}
+              amountPaid={Number(invoice.amountPaid)}
+              selectedAmount={Number(amount) || 0}
+              onSelect={(value) => setAmount(String(value))}
+            />
+
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-emerald-900">
-                  Client Phone
-                </label>
-                <div className="relative">
-                  <Smartphone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-700" />
-                  <input
-                    className="w-full rounded-lg border border-emerald-200 bg-white py-2 pl-10 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="07XXXXXXXX"
-                  />
+              {payMode === 'mpesa' ? (
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-emerald-900">
+                    Client Phone
+                  </label>
+                  <div className="relative">
+                    <Smartphone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-700" />
+                    <input
+                      className="w-full rounded-lg border border-emerald-200 bg-white py-2 pl-10 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="07XXXXXXXX"
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-emerald-900">
+                    Method
+                  </label>
+                  <select
+                    className="w-full rounded-lg border border-emerald-200 bg-white py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    value={manualMethod}
+                    onChange={(e) => setManualMethod(e.target.value as 'CASH' | 'BANK')}
+                  >
+                    <option value="CASH">Cash</option>
+                    <option value="BANK">Bank transfer</option>
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-emerald-900">
                   Amount (KSh)
@@ -203,12 +294,23 @@ export default function InvoiceDetailPage() {
             </div>
             <button
               type="button"
-              disabled={requesting || !phone || !amount || Number(amount) <= 0}
-              onClick={onRequestPayment}
+              disabled={
+                requesting ||
+                !amount ||
+                Number(amount) <= 0 ||
+                (payMode === 'mpesa' && !phone)
+              }
+              onClick={payMode === 'mpesa' ? onRequestPayment : onRecordManual}
               className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
             >
               <Wallet className="h-4 w-4" />
-              {requesting ? 'Sending request\u2026' : 'Send Payment Request'}
+              {requesting
+                ? payMode === 'mpesa'
+                  ? 'Sending request\u2026'
+                  : 'Recording\u2026'
+                : payMode === 'mpesa'
+                  ? `Send request · ${formatKsh(Number(amount) || 0)}`
+                  : `Record ${manualMethod === 'CASH' ? 'cash' : 'bank'} · ${formatKsh(Number(amount) || 0)}`}
             </button>
           </section>
         )}
@@ -218,38 +320,12 @@ export default function InvoiceDetailPage() {
           onSendEmail={() => setSendModalOpen(true)}
         />
 
-        {invoice.payments && invoice.payments.length > 0 && (
-          <section className="print:hidden rounded-xl border border-gray-200 bg-white p-5">
-            <h2 className="mb-3 text-lg font-bold text-gray-900">Payment history</h2>
-            <p className="mb-3 text-xs text-gray-500">
-              M-Pesa receipt numbers match the customer SMS / Safaricom statement for reconciliation.
-            </p>
-            <ul className="space-y-2">
-              {invoice.payments.map((payment) => (
-                <li
-                  key={payment.paymentId}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm"
-                >
-                  <div>
-                    <p>
-                      KSh {Number(payment.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} via{' '}
-                      {payment.paymentMethod}
-                      {payment.initiatedAt ? ` · ${new Date(payment.initiatedAt).toLocaleString()}` : ''}
-                    </p>
-                    {payment.mpesaReceiptNumber ? (
-                      <p className="mt-0.5 font-mono text-xs font-semibold tracking-wide text-emerald-800">
-                        M-Pesa receipt · {payment.mpesaReceiptNumber}
-                      </p>
-                    ) : payment.paymentStatus === 'COMPLETED' ? (
-                      <p className="mt-0.5 text-xs text-amber-700">Awaiting M-Pesa receipt from callback…</p>
-                    ) : null}
-                  </div>
-                  <StatusPill status={payment.paymentStatus} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        <div className="print:hidden">
+          <InvoicePaymentHistory
+            payments={invoice.payments}
+            amountDue={Number(invoice.amountDue)}
+          />
+        </div>
       </main>
 
       <SendInvoiceModal

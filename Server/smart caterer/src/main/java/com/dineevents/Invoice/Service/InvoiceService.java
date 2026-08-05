@@ -48,7 +48,11 @@ public class InvoiceService {
         this.eventService = eventService;
     }
 
+    @Transactional
     public InvoiceResponseDTO createInvoiceFromQuotation(Quotation quotation) {
+        // Void earlier unpaid invoices so the client can only pay the revised bill.
+        cancelOpenInvoicesForEvent(quotation.getEvent().getEventId(), null);
+
         Invoice invoice = new Invoice();
         invoice.setInvoiceNumber(generateInvoiceNumber());
         invoice.setQuotation(quotation);
@@ -58,9 +62,52 @@ public class InvoiceService {
         invoice.setBalance(quotation.getTotal());
         invoice.setDueDate(quotation.getEvent().getEventDateTime().toLocalDate());
         invoice.setInvoiceStatus(InvoiceStatus.UNPAID);
-        invoice.setCreatedAt(quotation.getCreatedAt());
+        invoice.setCreatedAt(java.time.OffsetDateTime.now());
         Invoice savedInvoice = invoiceRepository.save(invoice);
+        log.info("Created invoice {} from quotation {} (earlier open invoices cancelled)",
+                savedInvoice.getInvoiceNumber(), quotation.getQuotationId());
         return toResponseDTO(savedInvoice);
+    }
+
+    /**
+     * Cancels unpaid / overdue invoices with no payments for an event (revised proposals).
+     * Leaves PAID and PARTIALLY_PAID invoices alone.
+     */
+    @Transactional
+    public int cancelOpenInvoicesForEvent(Long eventId, Long exceptInvoiceId) {
+        List<Invoice> invoices = invoiceRepository.findByEvent_EventId(eventId);
+        int cancelled = 0;
+        for (Invoice invoice : invoices) {
+            if (exceptInvoiceId != null && invoice.getInvoiceId().equals(exceptInvoiceId)) {
+                continue;
+            }
+            if (!isCancellableOpenInvoice(invoice)) {
+                continue;
+            }
+            invoice.setInvoiceStatus(InvoiceStatus.CANCELLED);
+            cancelled++;
+        }
+        if (cancelled > 0) {
+            invoiceRepository.saveAll(invoices);
+            log.info("Cancelled {} open invoice(s) for event {}", cancelled, eventId);
+        }
+        return cancelled;
+    }
+
+    public boolean hasPaidOrPartialInvoiceForQuotation(Long quotationId) {
+        return invoiceRepository.findByQuotation_QuotationId(quotationId).stream()
+                .anyMatch(invoice ->
+                        invoice.getInvoiceStatus() == InvoiceStatus.PAID
+                                || invoice.getInvoiceStatus() == InvoiceStatus.PARTIALLY_PAID);
+    }
+
+    private boolean isCancellableOpenInvoice(Invoice invoice) {
+        InvoiceStatus status = invoice.getInvoiceStatus();
+        if (status != InvoiceStatus.UNPAID && status != InvoiceStatus.OVERDUE) {
+            return false;
+        }
+        BigDecimal paid = invoice.getAmountPaid() == null ? BigDecimal.ZERO : invoice.getAmountPaid();
+        return paid.compareTo(BigDecimal.ZERO) <= 0;
     }
 
     /**
@@ -75,6 +122,10 @@ public class InvoiceService {
 
         Invoice invoice = invoiceRepository.findByIdForUpdate(invoiceId)
                 .orElseThrow(() -> new EntityNotFoundException("Invoice not found: " + invoiceId));
+
+        if (invoice.getInvoiceStatus() == InvoiceStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot apply payment to a cancelled invoice");
+        }
 
         BigDecimal balance = invoice.getBalance() != null ? invoice.getBalance() : BigDecimal.ZERO;
         if (amount.compareTo(balance) > 0) {

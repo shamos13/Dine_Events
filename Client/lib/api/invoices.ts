@@ -30,8 +30,9 @@ export type InvoiceResponse = {
     paymentMethod: string
     paymentStatus: string
     mpesaReceiptNumber?: string | null
-    initiatedAt?: string
-    completedAt?: string
+    checkoutRequestId?: string | null
+    initiatedAt?: string | null
+    completedAt?: string | null
   }> | null
 }
 

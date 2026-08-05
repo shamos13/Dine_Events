@@ -348,6 +348,7 @@ export default function Menu({
           <EventSidebarActions
             eventId={event.id}
             eventStatus={event.status}
+            discountPercent={event.discountPercent}
             liveTotals={{ MENU_PACKAGE: subtotal }}
             onGenerateInvoice={onGenerateInvoice}
             onGenerateProposal={onGenerateProposal}
