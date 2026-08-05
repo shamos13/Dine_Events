@@ -51,7 +51,7 @@ export default function Invoices() {
         <div className="mb-8 flex items-start justify-between">
           <div>
             <h1 className="mb-2 text-3xl font-bold text-gray-900">Invoices</h1>
-            <p className="text-gray-600">Manage and track your billing operations.</p>
+            <p className="text-gray-600">Track deposits, installments, and outstanding balances.</p>
           </div>
         </div>
 
@@ -95,7 +95,7 @@ export default function Invoices() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-200 bg-slate-50">
                 <tr>
-                  {['Invoice', 'Client', 'Event', 'Created', 'Amount Due', 'Status', 'Actions'].map((item) => (
+                  {['Invoice', 'Client', 'Event', 'Created', 'Amount Due', 'Paid', 'Balance', 'Status', 'Actions'].map((item) => (
                     <th key={item} className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">
                       {item}
                     </th>
@@ -122,9 +122,15 @@ export default function Invoices() {
                     <td className="px-6 py-4 font-bold text-gray-900">
                       KSh {Number(invoice.amountDue).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </td>
+                    <td className="px-6 py-4 font-semibold text-emerald-700">
+                      KSh {Number(invoice.amountPaid).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-amber-700">
+                      KSh {Number(invoice.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </td>
                     <td className="px-6 py-4">
                       <span className={`rounded-full px-3 py-1 text-xs ${statusStyles[invoice.invoiceStatus] || 'bg-slate-100 text-slate-700'}`}>
-                        {invoice.invoiceStatus}
+                        {invoice.invoiceStatus.replaceAll('_', ' ')}
                       </span>
                     </td>
                     <td className="px-6 py-4">

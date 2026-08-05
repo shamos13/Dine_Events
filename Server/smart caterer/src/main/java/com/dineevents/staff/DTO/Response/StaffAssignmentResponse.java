@@ -1,5 +1,6 @@
 package com.dineevents.staff.DTO.Response;
 
+import com.dineevents.staff.Enum.StaffPricingMethod;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -15,6 +16,8 @@ public class StaffAssignmentResponse {
     private String roleForEvent;
     private String eventName;
     private BigDecimal salaryAtAssignment;
+    private StaffPricingMethod pricingMethod;
+    private String profileImageUrl;
     private String assignmentStatus;
     private List<String> responsibilities;
 }

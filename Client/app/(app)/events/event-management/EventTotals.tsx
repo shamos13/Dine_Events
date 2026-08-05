@@ -76,7 +76,17 @@ function useCurrentEventTotals(eventId: number) {
   return totals
 }
 
-export function EventTotals({ eventId, className = '', liveTotals }: { eventId: number; className?: string; liveTotals?: Partial<Record<LineItemType, number>> }) {
+export function EventTotals({
+  eventId,
+  className = '',
+  liveTotals,
+  discountPercent = 0,
+}: {
+  eventId: number
+  className?: string
+  liveTotals?: Partial<Record<LineItemType, number>>
+  discountPercent?: number
+}) {
   const { currentQuotation, loading, error } = useEventQuotation(eventId)
   const currentTotals = useCurrentEventTotals(eventId)
   const totalsByType = useMemo(() => {
@@ -90,7 +100,17 @@ export function EventTotals({ eventId, className = '', liveTotals }: { eventId: 
   }, [currentQuotation, currentTotals, liveTotals])
   const itemTotal = useMemo(() => totalsByType.reduce((sum, [, value]) => sum + value, 0), [totalsByType])
   const hasCurrentTotals = Object.keys(currentTotals).length > 0
-  const total = hasCurrentTotals || liveTotals ? itemTotal : Number(currentQuotation?.total ?? 0)
+  const quoteDiscountPct = Number(currentQuotation?.discountPercent ?? 0)
+  const effectiveDiscountPct =
+    discountPercent > 0 ? discountPercent : hasCurrentTotals || liveTotals ? discountPercent : quoteDiscountPct
+  const discountAmount =
+    hasCurrentTotals || liveTotals || discountPercent > 0
+      ? itemTotal * (effectiveDiscountPct / 100)
+      : Number(currentQuotation?.discountAmount ?? 0)
+  const total =
+    hasCurrentTotals || liveTotals || discountPercent > 0
+      ? Math.max(0, itemTotal - discountAmount)
+      : Number(currentQuotation?.total ?? 0)
 
   return (
     <Panel className={className}>
@@ -98,12 +118,31 @@ export function EventTotals({ eventId, className = '', liveTotals }: { eventId: 
       {loading ? (
         <p className="text-sm text-slate-600">Loading event totals...</p>
       ) : error ? (
-        <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
+        <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </p>
       ) : (
         <div className="space-y-4 text-sm">
-          {totalsByType.length ? totalsByType.map(([type, value]) => <Total key={type} label={lineItemLabels[type]} value={currency(value)} />) : <p className="text-sm text-slate-600">No billed items from server yet.</p>}
-          <div className="border-t border-[#efb6b0] pt-4"><Total label="Item Total" value={currency(hasCurrentTotals || liveTotals ? itemTotal : currentQuotation?.subTotal ?? 0)} /></div>
-          <div className="border-t border-blue-200 pt-4"><Total label={<span className="text-xl font-bold">Total</span>} value={<span className="text-xl font-bold text-[#cc2622]">{currency(total)}</span>} /></div>
+          {totalsByType.length ? (
+            totalsByType.map(([type, value]) => <Total key={type} label={lineItemLabels[type]} value={currency(value)} />)
+          ) : (
+            <p className="text-sm text-slate-600">No billed items from server yet.</p>
+          )}
+          <div className="border-t border-[#efb6b0] pt-4">
+            <Total
+              label="Item Total"
+              value={currency(hasCurrentTotals || liveTotals ? itemTotal : currentQuotation?.subTotal ?? 0)}
+            />
+          </div>
+          {effectiveDiscountPct > 0 && (
+            <Total label={`Discount (${effectiveDiscountPct}%)`} value={`− ${currency(discountAmount)}`} />
+          )}
+          <div className="border-t border-blue-200 pt-4">
+            <Total
+              label={<span className="text-xl font-bold">Total</span>}
+              value={<span className="text-xl font-bold text-[#cc2622]">{currency(total)}</span>}
+            />
+          </div>
         </div>
       )}
     </Panel>

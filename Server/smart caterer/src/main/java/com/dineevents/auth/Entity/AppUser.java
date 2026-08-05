@@ -1,6 +1,7 @@
 package com.dineevents.auth.Entity;
 
 import com.dineevents.auth.Enum.Role;
+import com.dineevents.client.Entity.Client;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -41,6 +42,10 @@ public class AppUser implements UserDetails {
     private String refreshToken;
 
     private Date refreshTokenExpiresAt;
+
+    @OneToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "client_id")
+    private Client client;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

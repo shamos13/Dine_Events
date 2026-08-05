@@ -12,6 +12,9 @@ import java.math.BigDecimal;
 public class InventoryResponseDTO {
     private Long inventoryId;
     private String inventoryName;
+    /** Total stock on hand in the catalog. */
     private Integer inventoryQuantity;
+    /** Units still free after active event allocations. */
+    private Integer availableQuantity;
     private BigDecimal unitPrice;
 }

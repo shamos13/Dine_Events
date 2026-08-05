@@ -1,9 +1,9 @@
 package com.dineevents.Invoice.Entity;
 
-
 import com.dineevents.Invoice.Enum.InvoiceStatus;
 import com.dineevents.Quotation.Entity.Quotation;
 import com.dineevents.event.Entity.Event;
+import com.dineevents.Payment.Entity.Payment;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -13,6 +13,8 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter
@@ -27,12 +29,10 @@ public class Invoice {
 
     private String invoiceNumber;
 
-    //relationship with quotation
     @OneToOne
     @JoinColumn(name = "quotation_id")
     private Quotation quotation;
 
-    // Relationship with Event (Many invoices belong to one event)
     @ManyToOne
     @JoinColumn(name = "event_id")
     private Event event;
@@ -43,10 +43,11 @@ public class Invoice {
 
     private LocalDate dueDate;
 
+    @Enumerated(EnumType.STRING)
     private InvoiceStatus invoiceStatus;
+
     private OffsetDateTime createdAt;
 
-    // Implement this later Relationship with the payment module
-    //@OneToMany(mappedBy = "invoice")
-    //private List<Payment> payments;
+    @OneToMany(mappedBy = "invoice")
+    private List<Payment> payments = new ArrayList<>();
 }

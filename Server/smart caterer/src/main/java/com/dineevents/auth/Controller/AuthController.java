@@ -3,12 +3,14 @@ package com.dineevents.auth.Controller;
 import com.dineevents.auth.DTO.Request.LoginRequestDTO;
 import com.dineevents.auth.DTO.Request.RefreshTokenRequestDTO;
 import com.dineevents.auth.DTO.Request.RegisterRequestDTO;
+import com.dineevents.auth.DTO.Request.StaffRegisterRequestDTO;
 import com.dineevents.auth.DTO.Response.AuthResponseDTO;
 import com.dineevents.auth.Service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,6 +23,12 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<AuthResponseDTO> register(@Valid @RequestBody RegisterRequestDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(dto));
+    }
+
+    @PostMapping("/register/staff")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AuthResponseDTO> registerStaff(@Valid @RequestBody StaffRegisterRequestDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.registerStaff(dto));
     }
 
     @PostMapping("/login")

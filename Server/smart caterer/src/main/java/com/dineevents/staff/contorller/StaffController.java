@@ -10,8 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 @RestController
 @RequestMapping("/api/v1/staff")
 public class StaffController {
@@ -20,10 +22,17 @@ public class StaffController {
 
     @PostMapping("/new-staff")
     public ResponseEntity<StaffResponseDTO> createStaff(@Valid @RequestBody StaffRequestDTO staffRequestDTO) {
-        return  ResponseEntity.ok(staffService.createStaff(staffRequestDTO));
+        return ResponseEntity.ok(staffService.createStaff(staffRequestDTO));
     }
 
-    //Get all staff
+    @PutMapping("/{staffId}")
+    public ResponseEntity<StaffResponseDTO> updateStaff(
+            @PathVariable Long staffId,
+            @Valid @RequestBody StaffRequestDTO staffRequestDTO
+    ) {
+        return ResponseEntity.ok(staffService.updateStaff(staffId, staffRequestDTO));
+    }
+
     @GetMapping("/all-staff")
     public ResponseEntity<List<StaffResponseDTO>> getAllStaff() {
         return ResponseEntity.ok(staffService.getAllStaff());

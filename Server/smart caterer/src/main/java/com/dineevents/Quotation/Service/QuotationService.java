@@ -18,6 +18,7 @@ import com.dineevents.Quotation.Enum.LineItemType;
 import com.dineevents.Quotation.Enum.QuotationStatus;
 import com.dineevents.Quotation.Repository.QuotationRepository;
 import com.dineevents.event.Entity.Event;
+import com.dineevents.event.Enums.EventStatus;
 import com.dineevents.event.Repository.EventRepository;
 import com.dineevents.staff.Entity.StaffAssignment;
 import com.dineevents.staff.Repository.StaffAssignmentRepository;
@@ -46,9 +47,14 @@ public class QuotationService {
     private final MenuPackageItemRepository menuPackageItemRepository;
 
     //Create a new quotation
+    @org.springframework.transaction.annotation.Transactional
     public QuotationResponseDTO createQuotation(QuotationRequestDTO dto){
         Event event = eventRepository.findById(dto.getEventId())
                 .orElseThrow(() -> new EntityNotFoundException("Event not found: " + dto.getEventId()));
+
+        if (event.getEventStatus() == EventStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot create a quotation for a cancelled event");
+        }
 
         Quotation quotation = new Quotation();
         quotation.setQuotationNumber(generateQuotationNumber());
@@ -133,11 +139,69 @@ public class QuotationService {
                 .map(QuotationLineItem::getLineTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         quotation.setSubTotal(subtotal);
-        quotation.setTotal(subtotal);
+
+        BigDecimal discountPct = event.getDiscountPercent() == null
+                ? BigDecimal.ZERO
+                : event.getDiscountPercent();
+        if (discountPct.compareTo(BigDecimal.ZERO) < 0) {
+            discountPct = BigDecimal.ZERO;
+        }
+        if (discountPct.compareTo(new BigDecimal("100")) > 0) {
+            discountPct = new BigDecimal("100");
+        }
+        BigDecimal discountAmount = subtotal
+                .multiply(discountPct)
+                .divide(new BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP);
+        quotation.setDiscountPercent(discountPct);
+        quotation.setDiscountAmount(discountAmount);
+        quotation.setDiscountReason(event.getDiscountReason());
+        quotation.setTotal(subtotal.subtract(discountAmount).max(BigDecimal.ZERO));
 
         Quotation savedQuotation = quotationRepository.save(quotation);
+        supersedePreviousQuotations(event.getEventId(), savedQuotation.getQuotationId());
+        // Revised proposal replaces open unpaid invoices from earlier accepted quotes.
+        invoiceService.cancelOpenInvoicesForEvent(event.getEventId(), null);
+        log.info("Created draft quotation {} for event {}", savedQuotation.getQuotationId(), event.getEventId());
         return toResponseDTO(savedQuotation);
+    }
 
+    @org.springframework.transaction.annotation.Transactional
+    public QuotationResponseDTO sendQuotation(Long quotationId) {
+        Quotation quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new EntityNotFoundException("Quotation not found: " + quotationId));
+
+        if (quotation.getQuotationStatus() != QuotationStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "Only draft quotations can be sent (current status: " + quotation.getQuotationStatus() + ")");
+        }
+
+        Long eventId = quotation.getEvent().getEventId();
+        supersedePreviousQuotations(eventId, quotationId);
+        invoiceService.cancelOpenInvoicesForEvent(eventId, null);
+
+        quotation.setQuotationStatus(QuotationStatus.SENT);
+        Quotation saved = quotationRepository.save(quotation);
+        log.info("Quotation {} sent to client for event {}", quotationId, eventId);
+        return toResponseDTO(saved);
+    }
+
+    /**
+     * Client-portal acceptance: only SENT quotations can be accepted by the client.
+     * Admin override still uses {@link #approveQuotation(Long)}.
+     */
+    public InvoiceResponseDTO acceptSentQuotation(Long quotationId) {
+        Quotation quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new EntityNotFoundException("Quotation not found: " + quotationId));
+
+        if (quotation.getQuotationStatus() != QuotationStatus.SENT) {
+            throw new IllegalStateException(
+                    quotation.getQuotationStatus() == QuotationStatus.SUPERSEDED
+                            ? "This quotation was replaced by a revised proposal. Please review the latest quotation."
+                            : "Only sent quotations can be accepted by the client (current status: "
+                                    + quotation.getQuotationStatus() + ")");
+        }
+
+        return approveQuotation(quotationId);
     }
 
     // Get all quotations
@@ -147,7 +211,30 @@ public class QuotationService {
         return quotations.stream().map(this::toResponseDTO).toList();
     }
 
+    public List<QuotationResponseDTO> getQuotationsByEventId(Long eventId) {
+        return quotationRepository.findByEvent_EventId(eventId).stream().map(this::toResponseDTO).toList();
+    }
+
+    public QuotationResponseDTO getQuotationById(Long quotationId) {
+        Quotation quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new EntityNotFoundException("Quotation not found: " + quotationId));
+        return toResponseDTO(quotation);
+    }
+
+    public QuotationResponseDTO declineQuotation(Long quotationId) {
+        Quotation quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new EntityNotFoundException("Quotation not found: " + quotationId));
+        if (quotation.getQuotationStatus() != QuotationStatus.DRAFT
+                && quotation.getQuotationStatus() != QuotationStatus.SENT) {
+            throw new IllegalStateException(
+                    "Cannot decline quotation in status " + quotation.getQuotationStatus());
+        }
+        quotation.setQuotationStatus(QuotationStatus.REJECTED);
+        return toResponseDTO(quotationRepository.save(quotation));
+    }
+
     // Approve Quotation
+    @org.springframework.transaction.annotation.Transactional
     public InvoiceResponseDTO approveQuotation(Long quotationId) {
         Quotation quotation = quotationRepository.findById(quotationId)
                 .orElseThrow(() -> new EntityNotFoundException("Quotation not found: " + quotationId));
@@ -158,12 +245,45 @@ public class QuotationService {
                     "Cannot approve quotation in status " + quotation.getQuotationStatus());
         }
 
+        Long eventId = quotation.getEvent().getEventId();
+        supersedePreviousQuotations(eventId, quotationId);
+
         quotation.setQuotationStatus(QuotationStatus.ACCEPTED);
         quotationRepository.save(quotation);
 
         return invoiceService.createInvoiceFromQuotation(quotation);
     }
 
+    /**
+     * Marks earlier open / accepted-but-revisable proposals as SUPERSEDED so the client
+     * can only act on the current revision.
+     */
+    private void supersedePreviousQuotations(Long eventId, Long keepQuotationId) {
+        List<QuotationStatus> openStatuses = List.of(
+                QuotationStatus.DRAFT,
+                QuotationStatus.SENT,
+                QuotationStatus.ACCEPTED,
+                QuotationStatus.EXPIRED
+        );
+        List<Quotation> toSupersede = new ArrayList<>();
+        for (Quotation quotation : quotationRepository.findByEvent_EventIdAndQuotationStatusIn(eventId, openStatuses)) {
+            if (quotation.getQuotationId().equals(keepQuotationId)) {
+                continue;
+            }
+            // Keep ACCEPTED history when the linked invoice already has payments.
+            if (quotation.getQuotationStatus() == QuotationStatus.ACCEPTED
+                    && invoiceService.hasPaidOrPartialInvoiceForQuotation(quotation.getQuotationId())) {
+                continue;
+            }
+            quotation.setQuotationStatus(QuotationStatus.SUPERSEDED);
+            toSupersede.add(quotation);
+        }
+        if (!toSupersede.isEmpty()) {
+            quotationRepository.saveAll(toSupersede);
+            log.info("Superseded {} older quotation(s) for event {} in favour of {}",
+                    toSupersede.size(), eventId, keepQuotationId);
+        }
+    }
 
     // Helper Methods
     private String generateQuotationNumber() {
@@ -190,7 +310,7 @@ public class QuotationService {
     }
 
     //To Respsonse DTO
-    private QuotationResponseDTO toResponseDTO(Quotation quotation){
+    public QuotationResponseDTO toResponseDTO(Quotation quotation){
         QuotationResponseDTO dto = new QuotationResponseDTO();
         dto.setQuotationId(quotation.getQuotationId());
         dto.setQuotationNumber(quotation.getQuotationNumber());
@@ -202,6 +322,9 @@ public class QuotationService {
             dto.setClientPhone(quotation.getEvent().getClient().getClientPhone());
         }
         dto.setSubTotal(quotation.getSubTotal());
+        dto.setDiscountPercent(quotation.getDiscountPercent() == null ? BigDecimal.ZERO : quotation.getDiscountPercent());
+        dto.setDiscountAmount(quotation.getDiscountAmount() == null ? BigDecimal.ZERO : quotation.getDiscountAmount());
+        dto.setDiscountReason(quotation.getDiscountReason());
         dto.setQuotationName(quotation.getQuotationName());
         dto.setTotal(quotation.getTotal());
         dto.setQuotationStatus(quotation.getQuotationStatus());

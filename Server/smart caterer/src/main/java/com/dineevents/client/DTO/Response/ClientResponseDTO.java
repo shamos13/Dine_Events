@@ -12,6 +12,7 @@ public class ClientResponseDTO {
     private String clientEmail;
     private String clientPhone;
     private String companyName;
+    private String profileImageUrl;
 
     // Get events associated with the client
     private List<EventSummaryDTO> events;

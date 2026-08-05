@@ -9,7 +9,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 
+@PreAuthorize("hasRole('ADMIN')")
 @RestController
 @RequestMapping("/api/v1/staff-assignment")
 @RequiredArgsConstructor
@@ -32,5 +34,11 @@ public class StaffAssignmentController {
     @GetMapping("/event/{eventId}")
     public ResponseEntity<List<StaffAssignmentResponse>> getStaffAssignmentsByEvent(@PathVariable Long eventId){
         return ResponseEntity.ok(staffAssignmentService.getStaffAssignmentsByEventId(eventId));
+    }
+
+    @DeleteMapping("/{staffAssignmentId}")
+    public ResponseEntity<Void> removeStaffAssignment(@PathVariable Long staffAssignmentId) {
+        staffAssignmentService.removeStaffAssignment(staffAssignmentId);
+        return ResponseEntity.noContent().build();
     }
 }

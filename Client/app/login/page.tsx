@@ -47,7 +47,7 @@ export default function Login() {
   return (
     <AuthFrame
       title="Welcome back"
-      subtitle="Sign in to access your catering operations dashboard."
+      subtitle="Sign in to your client portal or operations dashboard."
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
@@ -60,6 +60,8 @@ export default function Login() {
               id="email"
               type="email"
               name="email"
+              autoComplete="username"
+              required
               value={formData.email}
               onChange={handleChange}
               placeholder="jane@example.com"
@@ -83,6 +85,8 @@ export default function Login() {
               id="password"
               type={showPassword ? 'text' : 'password'}
               name="password"
+              autoComplete="current-password"
+              required
               value={formData.password}
               onChange={handleChange}
               placeholder="••••••••"

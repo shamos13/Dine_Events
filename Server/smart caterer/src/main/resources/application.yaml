@@ -1,6 +1,10 @@
 spring:
   application:
     name: smart caterer
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 app:
   cors:
@@ -9,3 +13,24 @@ app:
   jwt:
     expiration-ms: 3600000
     refresh-expiration-ms: 604800000
+  bootstrap:
+    admin:
+      email: admin@dineevents.ke
+      password: AdminPass123!
+      full-name: System Admin
+  mpesa:
+    enabled: false
+    base-url: https://sandbox.safaricom.co.ke
+    consumer-key: ${MPESA_CONSUMER_KEY:}
+    consumer-secret: ${MPESA_CONSUMER_SECRET:}
+    shortcode: "174379"
+    passkey: ${MPESA_PASSKEY:}
+    callback-url: ${MPESA_CALLBACK_URL:http://localhost:8080/api/v1/payments/mpesa/callback}
+    transaction-type: CustomerPayBillOnline
+    reconcile-delay-ms: 3000
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
+    # Optional. Create in Cloudinary Console → Settings → Upload → Upload presets.
+    upload-preset: ${CLOUDINARY_UPLOAD_PRESET:}

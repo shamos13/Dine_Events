@@ -1,5 +1,6 @@
 package com.dineevents.staff.Entity;
 
+import com.dineevents.staff.Enum.StaffPricingMethod;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -27,6 +28,9 @@ public class Staff {
     private BigDecimal staffSalary;
     private String profileImageUrl;
     private String staffRole;
+
+    @Enumerated(EnumType.STRING)
+    private StaffPricingMethod pricingMethod = StaffPricingMethod.FLAT_RATE;
 
     @ElementCollection
     @CollectionTable(joinColumns = @JoinColumn(name = "staff_id"))

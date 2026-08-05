@@ -19,4 +19,5 @@ public class ClientRequestDTO {
     @NotBlank(message = "Phone number is required")
     private String clientPhone;
     private String companyName;
+    private String profileImageUrl;
 }

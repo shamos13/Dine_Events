@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
-import { Archive, ArrowLeft, ChevronRight } from 'lucide-react'
+import { useParams, useSearchParams } from 'next/navigation'
+import { Archive, ArrowLeft, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -23,14 +23,25 @@ import Rentals from '../event-management/Rentals'
 import Staff from '../event-management/Staff'
 import { toEventRecord, type EventRecord } from '../event-management/event-data'
 import { ApiError } from '@/lib/api/client'
-import { getEvents } from '@/lib/api/events'
-import { createQuotation, getQuotations, type QuotationResponse } from '@/lib/api/quotations'
+import { getEventMessages, getEventUnreadCount } from '@/lib/api/communication'
+import {
+  EVENT_STATUSES,
+  getEvents,
+  updateEventStatus,
+  type EventStatus,
+} from '@/lib/api/events'
+import { createQuotation, getQuotations, sendQuotation, type QuotationResponse } from '@/lib/api/quotations'
 
 const tabs = ['Details', 'Billing', 'Menu', 'Staff', 'Rentals', 'Notes', 'Files', 'Communication'] as const
 type Tab = (typeof tabs)[number]
 
+function isTab(value: string | null): value is Tab {
+  return !!value && (tabs as readonly string[]).includes(value)
+}
+
 export default function EventDetails() {
   const { id } = useParams<{ id: string }>()
+  const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<Tab>('Details')
   const [event, setEvent] = useState<EventRecord | null>(null)
   const [currentQuotation, setCurrentQuotation] = useState<QuotationResponse | null>(null)
@@ -39,6 +50,11 @@ export default function EventDetails() {
   const [billingActionError, setBillingActionError] = useState<string | null>(null)
   const [billingActionMessage, setBillingActionMessage] = useState<string | null>(null)
   const [billingRefreshKey, setBillingRefreshKey] = useState(0)
+  const [commUnread, setCommUnread] = useState(0)
+  const [commAwaitingReply, setCommAwaitingReply] = useState(false)
+  const [statusUpdating, setStatusUpdating] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   // Invoice Workflow Modals & Preview state
   const [draftModalOpen, setDraftModalOpen] = useState(false)
@@ -51,6 +67,11 @@ export default function EventDetails() {
   const [currentQuotationData, setCurrentQuotationData] = useState<QuotationTemplateData | null>(null)
 
   useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (isTab(tabParam)) setActiveTab(tabParam)
+  }, [searchParams])
+
+  useEffect(() => {
     Promise.all([getEvents(), getQuotations().catch(() => [])])
       .then(([events, quotations]) => {
         const found = events.find((item) => item.eventId === Number(id))
@@ -60,6 +81,16 @@ export default function EventDetails() {
           .filter((quotation) => quotation.eventId === found.eventId)
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null
         setCurrentQuotation(latestQuotation)
+        return Promise.all([
+          getEventUnreadCount(found.eventId).catch(() => ({ eventId: found.eventId, unreadCount: 0 })),
+          getEventMessages(found.eventId).catch(() => []),
+        ])
+      })
+      .then((result) => {
+        if (!result) return
+        const [unread, messages] = result
+        setCommUnread(unread.unreadCount)
+        setCommAwaitingReply(messages.length > 0 && messages[messages.length - 1].sender === 'CLIENT')
       })
       .catch((reason: unknown) => setError(reason instanceof ApiError ? reason.message : 'Unable to load event.'))
       .finally(() => setLoading(false))
@@ -67,6 +98,10 @@ export default function EventDetails() {
 
   const createFreshQuotation = async (overrides?: { quotationName?: string; validUntil?: string }) => {
     if (!event) return null
+    if (event.status === 'CANCELLED') {
+      setBillingActionError('Cannot create proposals for a cancelled event.')
+      return null
+    }
     setBillingActionError(null)
     setBillingActionMessage(null)
     try {
@@ -77,6 +112,9 @@ export default function EventDetails() {
       })
       setCurrentQuotation(quotation)
       setBillingRefreshKey((key) => key + 1)
+      setBillingActionMessage(
+        `Proposal ${quotation.quotationNumber} saved as a draft. Send it to the client when ready.`
+      )
       return quotation
     } catch (reason) {
       setBillingActionError(reason instanceof ApiError ? reason.message : 'Unable to refresh event billing totals.')
@@ -84,12 +122,41 @@ export default function EventDetails() {
     }
   }
 
+  const handleStatusChange = async (nextStatus: EventStatus) => {
+    if (!event || nextStatus === event.status) return
+
+    if (nextStatus === 'CANCELLED') {
+      const confirmed = window.confirm(
+        'Cancel this event? Any paid invoices may trigger a 75% refund per policy.'
+      )
+      if (!confirmed) return
+    }
+
+    setStatusUpdating(true)
+    setStatusError(null)
+    setStatusMessage(null)
+    try {
+      const updated = await updateEventStatus(event.id, nextStatus)
+      setEvent(toEventRecord(updated))
+      setStatusMessage(`Event status updated to ${nextStatus.replaceAll('_', ' ')}.`)
+    } catch (reason) {
+      setStatusError(reason instanceof ApiError ? reason.message : 'Unable to update event status.')
+    } finally {
+      setStatusUpdating(false)
+    }
+  }
+
   const handleGenerateInvoice = async () => {
-    const quotation = await createFreshQuotation()
-    if (quotation) setDraftModalOpen(true)
+    setBillingActionError(
+      'Invoices are created when the client accepts a sent proposal. Generate and send a proposal first.'
+    )
   }
 
   const handleGenerateProposal = async () => {
+    if (event?.status === 'CANCELLED') {
+      setBillingActionError('Cannot create proposals for a cancelled event.')
+      return
+    }
     setBillingActionError(null)
     setBillingActionMessage(null)
     setDraftQuotationModalOpen(true)
@@ -227,7 +294,16 @@ export default function EventDetails() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'Details':
-        return <Details event={event} onGenerateInvoice={handleGenerateInvoice} onGenerateProposal={handleGenerateProposal} />
+        return (
+          <Details
+            event={event}
+            statusUpdating={statusUpdating}
+            onStatusChange={handleStatusChange}
+            onDiscountSaved={setEvent}
+            onGenerateInvoice={handleGenerateInvoice}
+            onGenerateProposal={handleGenerateProposal}
+          />
+        )
       case 'Billing':
         return <Billing key={`${event.id}-${billingRefreshKey}`} event={event} onGenerateInvoice={handleGenerateInvoice} onGenerateProposal={handleGenerateProposal} />
       case 'Menu':
@@ -241,11 +317,28 @@ export default function EventDetails() {
       case 'Files':
         return <Files event={event} />
       case 'Communication':
-        return <Communication event={event} />
+        return (
+          <Communication
+            event={event}
+            onUnreadChange={setCommUnread}
+            onAwaitingReplyChange={setCommAwaitingReply}
+          />
+        )
       default:
-        return <Details event={event} onGenerateInvoice={handleGenerateInvoice} onGenerateProposal={handleGenerateProposal} />
+        return (
+          <Details
+            event={event}
+            statusUpdating={statusUpdating}
+            onStatusChange={handleStatusChange}
+            onDiscountSaved={setEvent}
+            onGenerateInvoice={handleGenerateInvoice}
+            onGenerateProposal={handleGenerateProposal}
+          />
+        )
     }
   }
+
+  const canMarkCompleted = event.status === 'CONFIRMED' || event.status === 'TENTATIVE'
 
   return (
     <div className="min-h-screen bg-[#f7f8fc] text-slate-900">
@@ -264,10 +357,33 @@ export default function EventDetails() {
               {event.client} <span aria-hidden="true">•</span> {event.guests} guests <span aria-hidden="true">•</span> {event.date} <span aria-hidden="true">•</span> {event.dateTime.split(', ')[1]}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className={`rounded-full border border-[#eeb7b2] px-3 py-1.5 text-sm font-semibold ${event.statusStyle}`}>
-              {event.status}
-            </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              Status
+              <select
+                value={event.status}
+                disabled={statusUpdating}
+                onChange={(e) => void handleStatusChange(e.target.value as EventStatus)}
+                className={`rounded-full border border-[#eeb7b2] px-3 py-1.5 text-sm font-semibold outline-none transition focus:border-[#cc2622] focus:ring-2 focus:ring-[#cc2622]/20 disabled:cursor-not-allowed disabled:opacity-60 ${event.statusStyle}`}
+              >
+                {EVENT_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {canMarkCompleted && (
+              <button
+                type="button"
+                disabled={statusUpdating}
+                onClick={() => void handleStatusChange('COMPLETED')}
+                className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {statusUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Mark Completed
+              </button>
+            )}
             <button className="inline-flex items-center gap-2 rounded-md border border-[#eeb7b2] px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-red-50">
               <Archive className="h-4 w-4" />
               Archive
@@ -275,18 +391,43 @@ export default function EventDetails() {
           </div>
         </div>
 
+        {statusError && (
+          <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {statusError}
+          </p>
+        )}
+        {statusMessage && (
+          <p role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+            {statusMessage}
+          </p>
+        )}
+
         <div className="mt-8 flex overflow-x-auto border-b border-[#efb6b0]">
           {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`shrink-0 border-b-2 px-4 py-3 text-sm font-medium ${
+              className={`relative shrink-0 border-b-2 px-4 py-3 text-sm font-medium ${
                 activeTab === tab
                   ? 'border-[#cc2622] text-[#cc2622]'
                   : 'border-transparent text-slate-600 hover:text-[#cc2622]'
               }`}
             >
               {tab}
+              {tab === 'Communication' && (commUnread > 0 || commAwaitingReply) && (
+                <span
+                  className="comm-alert-blink ml-2 inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                  title="New client communication needs a reply"
+                  aria-label={
+                    commUnread > 0
+                      ? `${commUnread} unread client message${commUnread === 1 ? '' : 's'}`
+                      : 'Client waiting for a reply'
+                  }
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-white" aria-hidden="true" />
+                  {commUnread > 0 ? `New · ${commUnread > 9 ? '9+' : commUnread}` : 'New'}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -370,6 +511,16 @@ export default function EventDetails() {
       <SendQuotationModal
         isOpen={sendQuotationModalOpen}
         onClose={() => setSendQuotationModalOpen(false)}
+        onSend={async () => {
+          const quotationId = currentQuotation?.quotationId
+          if (!quotationId) throw new Error('No quotation to send. Save a draft first.')
+          const sent = await sendQuotation(quotationId)
+          setCurrentQuotation(sent)
+          setBillingRefreshKey((key) => key + 1)
+          setBillingActionMessage(
+            `Proposal ${sent.quotationNumber} sent — the client can now accept it in their portal.`
+          )
+        }}
         quotationNumber={currentQuotationData?.quotationNumber ?? currentQuotation?.quotationNumber ?? 'Draft'}
         eventName={event.name}
         clientName={currentQuotationData?.clientName ?? currentQuotation?.clientName ?? event.client}

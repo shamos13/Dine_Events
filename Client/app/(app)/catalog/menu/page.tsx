@@ -1,6 +1,7 @@
 'use client'
 
-import { Edit, Plus, Search, Trash2 } from 'lucide-react'
+import Image from 'next/image'
+import { Edit, Plus, Search, Trash2, UtensilsCrossed } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Footer from '@/components/Footer'
 import Header from '@/components/Header'
@@ -132,20 +133,35 @@ export default function MenuItemsPage() {
                     key={item.menuItemId}
                     className={index !== visibleItems.length - 1 ? 'border-b border-gray-200' : ''}
                   >
-                    <td className="px-6 py-4 font-semibold text-gray-900">{item.menuItemName}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-[#edf4ff]">
+                          {item.menuImageUrl ? (
+                            <Image
+                              src={item.menuImageUrl}
+                              alt=""
+                              fill
+                              sizes="48px"
+                              className="object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[#CC2622]">
+                              <UtensilsCrossed className="h-5 w-5" />
+                            </div>
+                          )}
+                        </div>
+                        <span className="font-semibold text-gray-900">{item.menuItemName}</span>
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-gray-600">{item.menuCategoryName ?? 'Uncategorized'}</td>
                     <td className="px-6 py-4 text-gray-600">
                       {item.menuImageUrl ? (
-                        <a
-                          href={item.menuImageUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-sm text-[#CC2622] hover:underline"
-                        >
-                          View image
-                        </a>
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                          Uploaded
+                        </span>
                       ) : (
-                        '—'
+                        <span className="text-sm text-gray-400">No image</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
@@ -177,8 +193,8 @@ export default function MenuItemsPage() {
         )}
 
         <p className="mt-4 text-xs text-gray-500">
-          The menu item API supports name, optional category, and optional image URL. Description and per-item pricing
-          are not part of the current backend contract.
+          Upload dish photos via Cloudinary when creating or editing menu items. They appear as thumbnails here and on
+          the event Menu tab.
         </p>
       </main>
       <Footer />
