@@ -220,6 +220,7 @@ export default function Staff({
           <EventSidebarActions
             eventId={event.id}
             eventStatus={event.status}
+            discountPercent={event.discountPercent}
             onGenerateInvoice={onGenerateInvoice}
             onGenerateProposal={onGenerateProposal}
           />

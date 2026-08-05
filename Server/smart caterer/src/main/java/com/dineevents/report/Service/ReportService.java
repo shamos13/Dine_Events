@@ -1,5 +1,9 @@
 package com.dineevents.report.Service;
 
+import com.dineevents.Inventory.Entity.Inventory;
+import com.dineevents.Inventory.Entity.InventoryItemAllocation;
+import com.dineevents.Inventory.Repository.InventoryAllocationRepository;
+import com.dineevents.Inventory.Repository.InventoryRepository;
 import com.dineevents.Invoice.Entity.Invoice;
 import com.dineevents.Invoice.Enum.InvoiceStatus;
 import com.dineevents.Invoice.Repository.InvoiceRepository;
@@ -18,10 +22,19 @@ import com.dineevents.Payment.Service.PaymentService;
 import com.dineevents.report.DTO.ClientsReportDTO;
 import com.dineevents.report.DTO.EventsReportDTO;
 import com.dineevents.report.DTO.FinancialReportDTO;
+import com.dineevents.report.DTO.InventoryReportDTO;
+import com.dineevents.report.DTO.StaffReportDTO;
+import com.dineevents.staff.Entity.Staff;
+import com.dineevents.staff.Entity.StaffAssignment;
+import com.dineevents.staff.Repository.StaffAssignmentRepository;
+import com.dineevents.staff.Repository.StaffRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -30,10 +43,12 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Builds admin reports straight from live database records (payments, invoices,
- * events, clients, feedback) — nothing here is static or precomputed.
+ * events, clients, feedback, staff, inventory) — nothing here is static or precomputed.
  */
 @Service
 @RequiredArgsConstructor
@@ -41,6 +56,7 @@ public class ReportService {
 
     private static final DateTimeFormatter MONTH_LABEL = DateTimeFormatter.ofPattern("MMM yyyy");
     private static final int MONTHS_BACK = 6;
+    private static final int LOW_STOCK_THRESHOLD = 5;
 
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
@@ -49,9 +65,14 @@ public class ReportService {
     private final FeedbackRepository feedbackRepository;
     private final PaymentService paymentService;
     private final EventService eventService;
+    private final StaffRepository staffRepository;
+    private final StaffAssignmentRepository staffAssignmentRepository;
+    private final InventoryRepository inventoryRepository;
+    private final InventoryAllocationRepository inventoryAllocationRepository;
 
+    @Transactional(readOnly = true)
     public FinancialReportDTO getFinancialReport() {
-        List<Payment> successful = paymentRepository.findByPaymentStatus((PaymentStatus.COMPLETED));
+        List<Payment> successful = paymentRepository.findByPaymentStatus(PaymentStatus.COMPLETED);
         List<Payment> refunded = paymentRepository.findByPaymentStatus(PaymentStatus.REFUNDED);
         List<Invoice> invoices = invoiceRepository.findAll();
 
@@ -65,15 +86,26 @@ public class ReportService {
                 .filter(i -> i.getInvoiceStatus() != InvoiceStatus.CANCELLED)
                 .map(i -> i.getAmountDue() != null ? i.getAmountDue() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
-        dto.setTotalOutstanding(invoices.stream()
+
+        List<Invoice> outstanding = invoices.stream()
                 .filter(i -> i.getInvoiceStatus() != InvoiceStatus.CANCELLED)
-                .map(i -> i.getBalance() != null ? i.getBalance() : BigDecimal.ZERO)
-                .filter(b -> b.compareTo(BigDecimal.ZERO) > 0)
+                .filter(i -> i.getBalance() != null && i.getBalance().compareTo(BigDecimal.ZERO) > 0)
+                .sorted(Comparator
+                        .comparing((Invoice i) -> i.getDueDate() != null ? i.getDueDate() : LocalDate.MAX)
+                        .thenComparing(Invoice::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+
+        dto.setTotalOutstanding(outstanding.stream()
+                .map(Invoice::getBalance)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
+        dto.setOutstandingInvoiceCount(outstanding.size());
+        dto.setOutstandingInvoices(outstanding.stream().map(this::toOutstandingEntry).toList());
+
         dto.setInvoiceCount(invoices.size());
         dto.setPaidInvoiceCount(invoices.stream()
                 .filter(i -> i.getInvoiceStatus() == InvoiceStatus.PAID)
                 .count());
+        dto.setRefundCount(refunded.size());
 
         Map<YearMonth, FinancialReportDTO.MonthlyFinancialEntryDTO> months = lastMonthsFinancial();
         for (Payment payment : successful) {
@@ -102,9 +134,16 @@ public class ReportService {
                 Comparator.nullsLast(Comparator.reverseOrder())));
         dto.setPayments(allMovements.stream().map(paymentService::toResponseDTO).toList());
 
+        List<Payment> refundsSorted = new ArrayList<>(refunded);
+        refundsSorted.sort(Comparator.comparing(
+                (Payment p) -> p.getCompletedAt() != null ? p.getCompletedAt() : p.getInitiatedAt(),
+                Comparator.nullsLast(Comparator.reverseOrder())));
+        dto.setRefunds(refundsSorted.stream().map(paymentService::toResponseDTO).toList());
+
         return dto;
     }
 
+    @Transactional(readOnly = true)
     public EventsReportDTO getEventsReport() {
         List<Event> events = eventRepository.findAll();
         OffsetDateTime now = OffsetDateTime.now();
@@ -149,6 +188,7 @@ public class ReportService {
         return dto;
     }
 
+    @Transactional(readOnly = true)
     public ClientsReportDTO getClientsReport() {
         List<Client> clients = clientRepository.findAll();
 
@@ -182,8 +222,226 @@ public class ReportService {
         return dto;
     }
 
+    @Transactional(readOnly = true)
+    public StaffReportDTO getStaffReport() {
+        List<Staff> staffList = staffRepository.findAll();
+        List<StaffAssignment> assignments = staffAssignmentRepository.findAll();
+
+        Map<Long, List<StaffAssignment>> byStaff = assignments.stream()
+                .filter(a -> a.getStaff() != null)
+                .collect(Collectors.groupingBy(a -> a.getStaff().getStaffId()));
+
+        StaffReportDTO dto = new StaffReportDTO();
+        dto.setTotalStaff(staffList.size());
+        dto.setTotalAssignments(assignments.size());
+        dto.setTotalAssignmentCost(assignments.stream()
+                .map(a -> a.getSalaryAtAssignment() != null ? a.getSalaryAtAssignment() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+        Map<String, Long> roleCounts = new LinkedHashMap<>();
+        for (Staff staff : staffList) {
+            String role = staff.getStaffRole() != null && !staff.getStaffRole().isBlank()
+                    ? staff.getStaffRole()
+                    : "Unspecified";
+            roleCounts.merge(role, 1L, Long::sum);
+        }
+        dto.setRoleCounts(roleCounts);
+
+        List<StaffReportDTO.StaffUtilizationEntryDTO> utilization = new ArrayList<>();
+        long unassigned = 0;
+        for (Staff staff : staffList) {
+            List<StaffAssignment> staffAssignments = byStaff.getOrDefault(staff.getStaffId(), List.of());
+            if (staffAssignments.isEmpty()) {
+                unassigned++;
+            }
+            StaffReportDTO.StaffUtilizationEntryDTO entry = new StaffReportDTO.StaffUtilizationEntryDTO();
+            entry.setStaffId(staff.getStaffId());
+            entry.setStaffName(staff.getStaffName());
+            entry.setStaffRole(staff.getStaffRole());
+            entry.setStaffEmail(staff.getStaffEmail());
+            entry.setStaffPhone(staff.getStaffPhone());
+            entry.setStaffSalary(staff.getStaffSalary());
+            entry.setPricingMethod(staff.getPricingMethod());
+            entry.setAssignmentCount(staffAssignments.size());
+            entry.setTotalEarned(staffAssignments.stream()
+                    .map(a -> a.getSalaryAtAssignment() != null ? a.getSalaryAtAssignment() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add));
+            utilization.add(entry);
+        }
+        utilization.sort(Comparator
+                .comparing(StaffReportDTO.StaffUtilizationEntryDTO::getAssignmentCount).reversed()
+                .thenComparing(StaffReportDTO.StaffUtilizationEntryDTO::getStaffName,
+                        Comparator.nullsLast(String::compareToIgnoreCase)));
+        dto.setStaff(utilization);
+        dto.setUnassignedStaffCount(unassigned);
+
+        List<StaffReportDTO.StaffAssignmentEntryDTO> assignmentEntries = assignments.stream()
+                .sorted(Comparator.comparing(
+                        (StaffAssignment a) -> a.getEvent() != null ? a.getEvent().getEventDateTime() : null,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(this::toStaffAssignmentEntry)
+                .toList();
+        dto.setAssignments(assignmentEntries);
+        return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public InventoryReportDTO getInventoryReport() {
+        List<Inventory> items = inventoryRepository.findAll();
+        List<InventoryItemAllocation> allocations = inventoryAllocationRepository.findAll();
+
+        InventoryReportDTO dto = new InventoryReportDTO();
+        dto.setTotalItems(items.size());
+
+        long totalStock = 0;
+        long totalAllocated = 0;
+        long lowStock = 0;
+        long outOfStock = 0;
+        List<InventoryReportDTO.InventoryStockEntryDTO> stockEntries = new ArrayList<>();
+
+        for (Inventory item : items) {
+            int stock = item.getInventoryQuantity() != null ? item.getInventoryQuantity() : 0;
+            Long allocatedSum = inventoryAllocationRepository.sumAllocatedQuantity(
+                    item.getInventoryId(), EventStatus.CANCELLED, null);
+            int allocated = allocatedSum == null ? 0 : allocatedSum.intValue();
+            int available = Math.max(0, stock - allocated);
+
+            totalStock += stock;
+            totalAllocated += allocated;
+            if (available == 0) {
+                outOfStock++;
+            } else if (available <= LOW_STOCK_THRESHOLD) {
+                lowStock++;
+            }
+
+            InventoryReportDTO.InventoryStockEntryDTO entry = new InventoryReportDTO.InventoryStockEntryDTO();
+            entry.setInventoryId(item.getInventoryId());
+            entry.setInventoryName(item.getInventoryName());
+            entry.setStockQuantity(stock);
+            entry.setAllocatedQuantity(allocated);
+            entry.setAvailableQuantity(available);
+            entry.setUnitPrice(item.getUnitPrice());
+            entry.setStockValue(item.getUnitPrice() != null
+                    ? item.getUnitPrice().multiply(BigDecimal.valueOf(stock))
+                    : BigDecimal.ZERO);
+            entry.setUtilizationPercent(stock == 0
+                    ? 0
+                    : BigDecimal.valueOf(allocated)
+                            .multiply(BigDecimal.valueOf(100))
+                            .divide(BigDecimal.valueOf(stock), 0, RoundingMode.HALF_UP)
+                            .intValue());
+            stockEntries.add(entry);
+        }
+
+        stockEntries.sort(Comparator
+                .comparing(InventoryReportDTO.InventoryStockEntryDTO::getAvailableQuantity)
+                .thenComparing(InventoryReportDTO.InventoryStockEntryDTO::getInventoryName,
+                        Comparator.nullsLast(String::compareToIgnoreCase)));
+
+        dto.setTotalStockUnits(totalStock);
+        dto.setTotalAllocatedUnits(totalAllocated);
+        dto.setLowStockCount(lowStock);
+        dto.setOutOfStockCount(outOfStock);
+        dto.setItems(stockEntries);
+
+        dto.setTotalAllocationValue(allocations.stream()
+                .filter(a -> a.getEvent() == null || a.getEvent().getEventStatus() != EventStatus.CANCELLED)
+                .map(a -> a.getTotalCost() != null ? a.getTotalCost() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+        List<InventoryReportDTO.InventoryAllocationEntryDTO> allocationEntries = allocations.stream()
+                .sorted(Comparator.comparing(
+                        (InventoryItemAllocation a) -> a.getEvent() != null ? a.getEvent().getEventDateTime() : null,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(this::toInventoryAllocationEntry)
+                .toList();
+        dto.setAllocations(allocationEntries);
+        return dto;
+    }
+
+    private FinancialReportDTO.OutstandingInvoiceEntryDTO toOutstandingEntry(Invoice invoice) {
+        FinancialReportDTO.OutstandingInvoiceEntryDTO entry = new FinancialReportDTO.OutstandingInvoiceEntryDTO();
+        entry.setInvoiceId(invoice.getInvoiceId());
+        entry.setInvoiceNumber(invoice.getInvoiceNumber());
+        if (invoice.getEvent() != null) {
+            entry.setEventId(invoice.getEvent().getEventId());
+            entry.setEventName(invoice.getEvent().getEventName());
+            if (invoice.getEvent().getClient() != null) {
+                Client client = invoice.getEvent().getClient();
+                entry.setClientName((client.getFirstName() + " "
+                        + (client.getLastName() == null ? "" : client.getLastName())).trim());
+            }
+        }
+        entry.setAmountDue(invoice.getAmountDue());
+        entry.setAmountPaid(invoice.getAmountPaid() != null ? invoice.getAmountPaid() : BigDecimal.ZERO);
+        entry.setBalance(invoice.getBalance());
+        entry.setDueDate(invoice.getDueDate());
+        entry.setInvoiceStatus(invoice.getInvoiceStatus());
+        entry.setCreatedAt(invoice.getCreatedAt());
+        boolean overdue = invoice.getInvoiceStatus() == InvoiceStatus.OVERDUE
+                || (invoice.getDueDate() != null && invoice.getDueDate().isBefore(LocalDate.now()));
+        entry.setOverdue(overdue);
+        return entry;
+    }
+
+    private StaffReportDTO.StaffAssignmentEntryDTO toStaffAssignmentEntry(StaffAssignment assignment) {
+        StaffReportDTO.StaffAssignmentEntryDTO entry = new StaffReportDTO.StaffAssignmentEntryDTO();
+        entry.setStaffAssignmentId(assignment.getStaffAssignmentId());
+        if (assignment.getStaff() != null) {
+            entry.setStaffId(assignment.getStaff().getStaffId());
+            entry.setStaffName(assignment.getStaff().getStaffName());
+            entry.setStaffRole(assignment.getStaff().getStaffRole());
+        }
+        entry.setRoleForEvent(assignment.getRoleForEvent());
+        if (assignment.getEvent() != null) {
+            entry.setEventId(assignment.getEvent().getEventId());
+            entry.setEventName(assignment.getEvent().getEventName());
+            entry.setEventStatus(assignment.getEvent().getEventStatus() != null
+                    ? assignment.getEvent().getEventStatus().name()
+                    : null);
+            entry.setEventDateTime(assignment.getEvent().getEventDateTime() != null
+                    ? assignment.getEvent().getEventDateTime().toString()
+                    : null);
+        }
+        entry.setSalaryAtAssignment(assignment.getSalaryAtAssignment());
+        entry.setAssignmentStatus(assignment.getAssignmentStatus() != null
+                ? assignment.getAssignmentStatus().name()
+                : null);
+        return entry;
+    }
+
+    private InventoryReportDTO.InventoryAllocationEntryDTO toInventoryAllocationEntry(
+            InventoryItemAllocation allocation) {
+        InventoryReportDTO.InventoryAllocationEntryDTO entry = new InventoryReportDTO.InventoryAllocationEntryDTO();
+        entry.setAllocationId(allocation.getAllocationId());
+        if (allocation.getInventory() != null) {
+            entry.setInventoryId(allocation.getInventory().getInventoryId());
+            entry.setInventoryName(allocation.getInventory().getInventoryName());
+        }
+        if (allocation.getEvent() != null) {
+            entry.setEventId(allocation.getEvent().getEventId());
+            entry.setEventName(allocation.getEvent().getEventName());
+            entry.setEventStatus(allocation.getEvent().getEventStatus() != null
+                    ? allocation.getEvent().getEventStatus().name()
+                    : null);
+            if (allocation.getEvent().getClient() != null) {
+                Client client = allocation.getEvent().getClient();
+                entry.setClientName((client.getFirstName() + " "
+                        + (client.getLastName() == null ? "" : client.getLastName())).trim());
+            }
+        }
+        entry.setPricingType(allocation.getPricingType());
+        entry.setQuantityAllocated(allocation.getQuantityAllocated());
+        entry.setQuantityReturned(allocation.getQuantityReturned());
+        entry.setTotalCost(allocation.getTotalCost());
+        return entry;
+    }
+
     private static BigDecimal sumAmounts(List<Payment> payments) {
-        return payments.stream().map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return payments.stream()
+                .map(Payment::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private static YearMonth monthOf(Payment payment) {
